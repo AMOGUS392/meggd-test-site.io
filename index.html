@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEGGD Browser — Полигон тестирования</title>
+<style>
+  :root {
+    --bg: #0a0a14;
+    --surface: #14142a;
+    --surface2: #1c1c30;
+    --accent: #6C63FF;
+    --accent2: #9C88FF;
+    --green: #4CAF50;
+    --orange: #FF9800;
+    --red: #F44336;
+    --text: #e0e0e0;
+    --muted: #666688;
+    --border: #2a2a44;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; font-size: 14px; }
+
+  header {
+    background: linear-gradient(135deg, #12121f 0%, #1a1a2e 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 24px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  header h1 { font-size: 20px; color: var(--accent); font-weight: 700; letter-spacing: 1px; }
+  header p { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+  nav {
+    display: flex; gap: 4px; padding: 12px 16px;
+    background: #0f0f1e; overflow-x: auto;
+    border-bottom: 1px solid var(--border);
+  }
+  nav a {
+    color: var(--muted); text-decoration: none; font-size: 12px; white-space: nowrap;
+    padding: 6px 14px; border-radius: 20px; transition: all 0.2s;
+  }
+  nav a:hover, nav a.active { background: var(--accent); color: #fff; }
+
+  main { padding: 16px; max-width: 900px; margin: 0 auto; }
+
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .section-header {
+    padding: 14px 18px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px; cursor: pointer;
+    user-select: none;
+  }
+  .section-header h2 { font-size: 14px; font-weight: 600; flex: 1; }
+  .section-header .badge {
+    font-size: 10px; padding: 2px 8px; border-radius: 10px;
+    background: var(--accent); color: #fff; letter-spacing: 0.5px;
+  }
+  .badge.green { background: var(--green); }
+  .badge.orange { background: var(--orange); }
+  .badge.red { background: var(--red); }
+  .section-body { padding: 16px; }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+
+  button {
+    background: var(--accent); color: #fff; border: none;
+    padding: 8px 16px; border-radius: 20px; font-size: 12px;
+    cursor: pointer; transition: all 0.2s; font-family: inherit;
+  }
+  button:hover { opacity: 0.85; transform: scale(0.98); }
+  button.secondary { background: var(--surface2); border: 1px solid var(--border); }
+  button.danger { background: var(--red); }
+  button.warning { background: var(--orange); }
+  button.success { background: var(--green); }
+
+  .output {
+    background: #0a0a14; border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px; margin-top: 8px; font-family: monospace; font-size: 11px;
+    color: var(--green); min-height: 40px; white-space: pre-wrap; word-break: break-all;
+    max-height: 200px; overflow-y: auto;
+  }
+  .output.red { color: var(--red); }
+  .output.orange { color: var(--orange); }
+
+  input[type=text], textarea, select {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 8px 12px; font-size: 13px; font-family: inherit;
+    outline: none; width: 100%;
+  }
+  input[type=text]:focus, textarea:focus { border-color: var(--accent); }
+  textarea { min-height: 80px; resize: vertical; }
+
+  label { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+
+  .info-box {
+    background: rgba(108,99,255,0.1); border: 1px solid rgba(108,99,255,0.3);
+    border-radius: 10px; padding: 10px 14px; font-size: 12px; color: var(--accent2);
+    margin-bottom: 10px;
+  }
+  .warn-box {
+    background: rgba(255,152,0,0.1); border: 1px solid rgba(255,152,0,0.3);
+    border-radius: 10px; padding: 10px 14px; font-size: 12px; color: var(--orange);
+    margin-bottom: 10px;
+  }
+
+  #cookieDemo { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .hidden-el { display: none; }
+  .sus-script-tag { color: var(--red); font-family: monospace; font-size: 11px; padding: 8px; background: rgba(244,67,54,0.1); border-radius: 6px; margin-top: 6px; }
+
+  iframe#testFrame {
+    width: 100%; height: 200px; border: 1px solid var(--border); border-radius: 8px;
+    margin-top: 8px; background: #fff;
+  }
+
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot-orange { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+  .dot-red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+  .form-wrap { background: var(--surface2); border-radius: 12px; padding: 16px; }
+  .form-wrap h3 { font-size: 13px; margin-bottom: 12px; color: var(--accent2); }
+  .form-group { margin-bottom: 10px; }
+
+  #counter { font-size: 32px; font-weight: 700; color: var(--accent); text-align: center; padding: 16px; }
+
+  .redirect-chain span {
+    display: inline-block; background: var(--surface2); border-radius: 4px;
+    padding: 2px 8px; font-size: 11px; margin: 2px; color: var(--accent2);
+  }
+  .redirect-chain span:after { content: " →"; color: var(--muted); }
+  .redirect-chain span:last-child:after { content: ""; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MEGGD Browser — Полигон тестирования</h1>
+  <p>Тестовая площадка для проверки всех функций браузера: ресурсы, JS-инспектор, контроль, безопасность</p>
+</header>
+
+<nav>
+  <a href="#js" class="active">JS Инспектор</a>
+  <a href="#resources">Ресурсы</a>
+  <a href="#storage">Хранилище</a>
+  <a href="#cookies">Куки</a>
+  <a href="#forms">Формы</a>
+  <a href="#redirects">Редиректы</a>
+  <a href="#hidden">Скрытые</a>
+  <a href="#iframes">Iframe</a>
+  <a href="#dom">DOM</a>
+  <a href="#network">Сеть</a>
+</nav>
+
+<main>
+
+<!-- ── 1. JS Inspector ─────────────────────────────────────────────────────── -->
+<div class="section" id="js">
+  <div class="section-header">
+    <span class="status-dot dot-green"></span>
+    <h2>1. JavaScript Инспектор</h2>
+    <span class="badge">JS</span>
+  </div>
+  <div class="section-body">
+    <div class="info-box">Эти кнопки позволяют проверить, как браузер обнаруживает JS-манипуляции. Используй вкладку «JS» в Контроле сайта для выполнения команд.</div>
+    <div class="row">
+      <button onclick="testEval()">Выполнить eval()</button>
+      <button onclick="testWrite()" class="warning">document.write()</button>
+      <button onclick="testLocation()" class="secondary">Изменить location</button>
+      <button onclick="testInnerHTML()" class="warning">innerHTML injection</button>
+      <button onclick="testBase64()" class="secondary">atob/btoa (base64)</button>
+      <button onclick="testFromChar()" class="danger">fromCharCode</button>
+    </div>
+    <div id="jsOutput" class="output">→ Нажмите любую кнопку для теста...</div>
+
+    <div style="margin-top: 14px;">
+      <label>Произвольный JS (MEGGD может перехватить через вкладку JS):</label>
+      <textarea id="customJs" placeholder="document.title = 'Взломано!'"></textarea>
+      <div class="row" style="margin-top:6px;">
+        <button onclick="runCustom()">▶ Выполнить</button>
+        <button onclick="document.getElementById('customJs').value=''" class="secondary">Очистить</button>
+      </div>
+      <div id="customOutput" class="output"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 2. Ресурсы (перехват) ───────────────────────────────────────────────── -->
+<div class="section" id="resources">
+  <div class="section-header">
+    <span class="status-dot dot-orange"></span>
+    <h2>2. Загрузка внешних ресурсов</h2>
+    <span class="badge orange">Перехват</span>
+  </div>
+  <div class="section-body">
+    <div class="warn-box">Браузер должен перехватить все эти запросы и показать их во вкладке «Ресурсы» Контроля сайта. Попробуй заблокировать один из доменов и перезагрузить страницу.</div>
+    <div class="row">
+      <button onclick="loadExternalScript()">Загрузить внешний JS</button>
+      <button onclick="loadExternalImage()" class="secondary">Загрузить img (tracker)</button>
+      <button onclick="sendBeacon()" class="warning">navigator.sendBeacon()</button>
+      <button onclick="xhrRequest()" class="secondary">XMLHttpRequest</button>
+      <button onclick="fetchRequest()">fetch() запрос</button>
+    </div>
+    <div id="resourceOutput" class="output">→ Нажмите кнопку — ресурс загрузится и появится во вкладке Ресурсы...</div>
+    <div style="margin-top: 12px;">
+      <label>Загруженные ресурсы на этой странице:</label>
+      <div id="resourceList" class="output" style="color: var(--accent2);"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 3. Хранилище ────────────────────────────────────────────────────────── -->
+<div class="section" id="storage">
+  <div class="section-header">
+    <span class="status-dot dot-green"></span>
+    <h2>3. localStorage / sessionStorage</h2>
+    <span class="badge">Хранилище</span>
+  </div>
+  <div class="section-body">
+    <div class="grid">
+      <div>
+        <label>Ключ</label>
+        <input type="text" id="storageKey" value="test_key" />
+      </div>
+      <div>
+        <label>Значение</label>
+        <input type="text" id="storageValue" value="секретные данные 123" />
+      </div>
+    </div>
+    <div class="row" style="margin-top:8px;">
+      <button onclick="storageSave()">Сохранить в localStorage</button>
+      <button onclick="storageRead()" class="secondary">Прочитать</button>
+      <button onclick="storageSession()" class="warning">sessionStorage</button>
+      <button onclick="storageClear()" class="danger">Очистить всё</button>
+    </div>
+    <div id="storageOutput" class="output">→ Используй вкладку JS в браузере: Object.keys(localStorage)</div>
+    <div style="margin-top: 10px;">
+      <label>Заполнить тестовыми данными (имитация сохранённых паролей/токенов):</label>
+      <button onclick="fillFakeData()" class="warning" style="margin-top:6px;">Записать фейковые токены</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 4. Куки ─────────────────────────────────────────────────────────────── -->
+<div class="section" id="cookies">
+  <div class="section-header">
+    <span class="status-dot dot-orange"></span>
+    <h2>4. Куки (без флагов безопасности)</h2>
+    <span class="badge orange">Небезопасно</span>
+  </div>
+  <div class="section-body">
+    <div class="warn-box">Эти куки создаются БЕЗ флагов Secure/HttpOnly/SameSite — именно это обнаруживает анализатор «О сайте».</div>
+    <div class="row">
+      <button onclick="setCookieUnsafe()">Создать небезопасную куку</button>
+      <button onclick="setCookieSafe()" class="success">Создать безопасную куку</button>
+      <button onclick="readCookies()" class="secondary">Прочитать все куки</button>
+      <button onclick="clearCookies()" class="danger">Удалить куки</button>
+    </div>
+    <div id="cookieOutput" class="output">→ Нажмите кнопку для работы с куками</div>
+    <div id="cookieDemo"></div>
+  </div>
+</div>
+
+<!-- ── 5. Формы ────────────────────────────────────────────────────────────── -->
+<div class="section" id="forms">
+  <div class="section-header">
+    <span class="status-dot dot-red"></span>
+    <h2>5. Формы (перехват отправки данных)</h2>
+    <span class="badge red">Угроза</span>
+  </div>
+  <div class="section-body">
+    <div class="warn-box">Браузер должен обнаружить эти формы через JS инспектор → «Формы — куда отправляются данные».</div>
+    <div class="grid">
+      <div class="form-wrap">
+        <h3>Форма 1 — POST на внешний сервер</h3>
+        <form id="form1" method="POST" action="https://httpbin.org/post" onsubmit="interceptForm(event,'form1')">
+          <div class="form-group">
+            <label>Логин</label>
+            <input type="text" placeholder="ваш_логин" />
+          </div>
+          <div class="form-group">
+            <label>Пароль</label>
+            <input type="password" placeholder="••••••••" />
+          </div>
+          <button type="submit" class="danger">Отправить данные</button>
+        </form>
+      </div>
+      <div class="form-wrap">
+        <h3>Форма 2 — GET с параметрами</h3>
+        <form id="form2" method="GET" action="https://example.com/track" onsubmit="interceptForm(event,'form2')">
+          <div class="form-group">
+            <label>Email</label>
+            <input type="text" placeholder="user@email.com" />
+          </div>
+          <div class="form-group">
+            <label>Телефон</label>
+            <input type="text" placeholder="+7..." />
+          </div>
+          <button type="submit" class="warning">Отправить (GET)</button>
+        </form>
+      </div>
+    </div>
+    <div id="formOutput" class="output" style="margin-top:8px;">→ Нажмите «Отправить» — форма будет перехвачена</div>
+  </div>
+</div>
+
+<!-- ── 6. Редиректы ────────────────────────────────────────────────────────── -->
+<div class="section" id="redirects">
+  <div class="section-header">
+    <span class="status-dot dot-orange"></span>
+    <h2>6. Редиректы (тест трассировщика)</h2>
+    <span class="badge orange">Редиректы</span>
+  </div>
+  <div class="section-body">
+    <div class="info-box">Используй «Контроль сайта» → вкладка «Редиректы» чтобы отследить цепочку переходов браузера.</div>
+    <div class="row">
+      <button onclick="metaRefresh()">meta refresh редирект</button>
+      <button onclick="jsRedirect()" class="warning">JS редирект (location.href)</button>
+      <button onclick="jsReplaceRedirect()" class="secondary">location.replace()</button>
+      <button onclick="historyPush()">history.pushState()</button>
+      <button onclick="simulateChain()" class="danger">Цепочка редиректов</button>
+    </div>
+    <div id="redirectOutput" class="output">→ Нажмите кнопку для симуляции редиректа</div>
+    <div style="margin-top:10px;">
+      <label>Текущая цепочка URL:</label>
+      <div class="redirect-chain" id="redirectChain">
+        <span>about:blank</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 7. Скрытые элементы ────────────────────────────────────────────────── -->
+<div class="section" id="hidden">
+  <div class="section-header">
+    <span class="status-dot dot-red"></span>
+    <h2>7. Скрытые элементы (fingerprinting)</h2>
+    <span class="badge red">Слежение</span>
+  </div>
+  <div class="section-body">
+    <div class="warn-box">JS инспектор → «Скрытые элементы» покажет количество невидимых элементов на странице.</div>
+
+    <!-- Hidden tracking elements -->
+    <div style="display:none" id="hiddenTracker1" data-user-id="uid_9283ab" data-session="sess_xyz">Скрытый трекер 1</div>
+    <div style="visibility:hidden" id="hiddenTracker2" data-fp="canvas_fingerprint_placeholder">Скрытый трекер 2</div>
+    <div hidden id="hiddenTracker3" data-ref="ref_source_tracking">Скрытый трекер 3</div>
+    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" width="1" height="1" style="position:absolute;opacity:0" id="trackingPixel" alt="">
+
+    <div class="row">
+      <button onclick="countHidden()">Подсчитать скрытые элементы</button>
+      <button onclick="revealHidden()" class="warning">Показать скрытые</button>
+      <button onclick="addHidden()" class="secondary">Добавить скрытый</button>
+      <button onclick="canvasFingerprint()" class="danger">Canvas fingerprint</button>
+    </div>
+    <div id="hiddenOutput" class="output">→ На странице уже есть 4 скрытых элемента — браузер должен их обнаружить</div>
+  </div>
+</div>
+
+<!-- ── 8. Iframe ───────────────────────────────────────────────────────────── -->
+<div class="section" id="iframes">
+  <div class="section-header">
+    <span class="status-dot dot-orange"></span>
+    <h2>8. Встроенные фреймы (iframe)</h2>
+    <span class="badge orange">Iframe</span>
+  </div>
+  <div class="section-body">
+    <div class="warn-box">Браузер обнаружит эти iframe во вкладке «Ресурсы» и в JS инспекторе → «Все iframe».</div>
+    <div class="row">
+      <button onclick="addIframe('https://example.com')">Добавить iframe (example.com)</button>
+      <button onclick="addIframe('about:blank')" class="secondary">Пустой iframe</button>
+      <button onclick="addInlineIframe()" class="warning">srcdoc iframe</button>
+      <button onclick="removeIframes()" class="danger">Удалить все iframe</button>
+    </div>
+    <div id="iframeContainer"></div>
+    <div id="iframeOutput" class="output">→ Нажмите кнопку для добавления iframe</div>
+  </div>
+</div>
+
+<!-- ── 9. DOM манипуляции ─────────────────────────────────────────────────── -->
+<div class="section" id="dom">
+  <div class="section-header">
+    <span class="status-dot dot-green"></span>
+    <h2>9. DOM манипуляции в реальном времени</h2>
+    <span class="badge">DOM</span>
+  </div>
+  <div class="section-body">
+    <div id="counter">0</div>
+    <div class="row" style="justify-content: center; margin-bottom:12px;">
+      <button onclick="changeCounter(-1)" class="secondary">−</button>
+      <button onclick="changeCounter(1)">+</button>
+      <button onclick="changeCounter(0, true)" class="danger">Сброс</button>
+    </div>
+    <div class="row">
+      <button onclick="changeTitle()">Изменить заголовок страницы</button>
+      <button onclick="changeBackground()" class="warning">Изменить фон</button>
+      <button onclick="injectElement()" class="danger">Внедрить элемент</button>
+      <button onclick="removeElement()" class="secondary">Удалить элемент</button>
+      <button onclick="cloneDOM()" class="secondary">Клонировать секцию</button>
+    </div>
+    <div id="domOutput" class="output">→ Нажмите кнопку для манипуляции с DOM</div>
+    <div id="injectedArea" style="margin-top:8px;"></div>
+  </div>
+</div>
+
+<!-- ── 10. Сеть и запросы ─────────────────────────────────────────────────── -->
+<div class="section" id="network">
+  <div class="section-header">
+    <span class="status-dot dot-orange"></span>
+    <h2>10. Сетевые запросы и слежение</h2>
+    <span class="badge orange">Сеть</span>
+  </div>
+  <div class="section-body">
+    <div class="info-box">Все эти запросы браузер должен перехватить и показать во вкладке «Ресурсы» → «Сетевые запросы XHR/Fetch».</div>
+    <div class="row">
+      <button onclick="pingTracker()">Имитировать трекер</button>
+      <button onclick="webSocketTest()" class="secondary">WebSocket тест</button>
+      <button onclick="serviceWorkerTest()" class="warning">Service Worker</button>
+      <button onclick="sendAllData()" class="danger">Собрать данные устройства</button>
+    </div>
+    <div id="networkOutput" class="output">→ Нажмите кнопку для теста сетевых запросов</div>
+
+    <div style="margin-top: 14px;">
+      <label>Данные устройства (собирает любой сайт):</label>
+      <div id="deviceInfo" class="output orange"></div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function out(id, msg, color) {
+  var el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'output' + (color ? ' ' + color : '');
+}
+function log(id, msg) {
+  var el = document.getElementById(id);
+  el.textContent += '\n' + msg;
+}
+
+// ── 1. JS Tests ──────────────────────────────────────────────────────────────
+function testEval() {
+  var code = 'Math.pow(2,10)';
+  var result = eval(code);
+  out('jsOutput', '✓ eval("' + code + '") = ' + result + '\n→ Браузер должен обнаружить вызов eval() в исходнике');
+}
+function testWrite() {
+  out('jsOutput', '⚠ document.write() вызван (симуляция — реальный вызов перезапишет страницу)\n→ Проверь вкладку Исходник в браузере', 'orange');
+}
+function testLocation() {
+  out('jsOutput', '→ window.location.href = "' + window.location.href + '"\n→ Изменение: симулировано (реальный редирект не выполнен)');
+}
+function testInnerHTML() {
+  document.getElementById('jsOutput').innerHTML = '<span style="color:#FF9800">⚠ innerHTML изменён через JS — это вектор XSS!</span>\n→ Браузер должен подсветить innerHTML= в исходнике';
+}
+function testBase64() {
+  var encoded = btoa('secret_token_abc123');
+  var decoded = atob(encoded);
+  out('jsOutput', '✓ btoa("secret_token_abc123") = ' + encoded + '\n✓ atob(результат) = ' + decoded + '\n→ base64 обнаруживается в исходнике как подозрительный паттерн');
+}
+function testFromChar() {
+  var s = String.fromCharCode(77,69,71,71,68);
+  out('jsOutput', '✓ fromCharCode(77,69,71,71,68) = "' + s + '"\n→ Используется для обфускации — браузер подсвечивает как угрозу', 'red');
+}
+function runCustom() {
+  var code = document.getElementById('customJs').value;
+  if (!code) return;
+  try {
+    var result = eval(code);
+    out('customOutput', '✓ Результат: ' + JSON.stringify(result));
+  } catch(e) {
+    out('customOutput', '✗ Ошибка: ' + e.message, 'red');
+  }
+}
+
+// ── 2. Resources ─────────────────────────────────────────────────────────────
+function loadExternalScript() {
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js';
+  s.onload = function() { out('resourceOutput', '✓ Внешний скрипт загружен: jQuery\n→ Должен появиться во вкладке Ресурсы → Скрипты JS'); };
+  s.onerror = function() { out('resourceOutput', '→ Скрипт заблокирован или недоступен\n→ Если ты заблокировал cdn.jsdelivr.net — это работает!', 'orange'); };
+  document.head.appendChild(s);
+}
+function loadExternalImage() {
+  var img = new Image();
+  img.src = 'https://www.google-analytics.com/collect?v=1&tid=UA-test&cid=555&t=pageview&dp=' + encodeURIComponent(window.location.href);
+  out('resourceOutput', '⚠ Отправлен пиксель слежения на google-analytics.com\n→ Браузер помечает как Трекер/пиксель слежения', 'orange');
+}
+function sendBeacon() {
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon('https://httpbin.org/post', JSON.stringify({event:'pageview', url: window.location.href}));
+    out('resourceOutput', '⚠ navigator.sendBeacon() отправлен на httpbin.org\n→ Используется трекерами для незаметной отправки данных');
+  } else {
+    out('resourceOutput', '→ sendBeacon не поддерживается');
+  }
+}
+function xhrRequest() {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', 'https://httpbin.org/get');
+  xhr.onload = function() { out('resourceOutput', '✓ XHR завершён: ' + xhr.status + '\n→ Должен появиться во вкладке Ресурсы → XHR/Fetch'); };
+  xhr.onerror = function() { out('resourceOutput', '→ XHR заблокирован или ошибка сети', 'orange'); };
+  xhr.send();
+  out('resourceOutput', '⏳ XHR запрос отправлен на httpbin.org...');
+}
+function fetchRequest() {
+  out('resourceOutput', '⏳ fetch() запрос отправлен...');
+  fetch('https://httpbin.org/get')
+    .then(function(r) { return r.json(); })
+    .then(function(d) { out('resourceOutput', '✓ fetch() завершён\nIP: ' + (d.origin || 'скрыт') + '\n→ Виден во вкладке Ресурсы'); })
+    .catch(function(e) { out('resourceOutput', '→ fetch заблокирован: ' + e.message, 'orange'); });
+}
+
+// Показать ресурсы страницы
+(function() {
+  var scripts = Array.from(document.querySelectorAll('script[src]')).map(function(s) { return '📜 ' + s.src; });
+  var links = Array.from(document.querySelectorAll('link[href]')).map(function(l) { return '🔗 ' + l.href; });
+  document.getElementById('resourceList').textContent = scripts.concat(links).join('\n') || 'Нет внешних ресурсов';
+})();
+
+// ── 3. Storage ────────────────────────────────────────────────────────────────
+function storageSave() {
+  var k = document.getElementById('storageKey').value;
+  var v = document.getElementById('storageValue').value;
+  localStorage.setItem(k, v);
+  out('storageOutput', '✓ localStorage["' + k + '"] = "' + v + '"\n→ Проверь через JS инспектор: Object.keys(localStorage)');
+}
+function storageRead() {
+  var k = document.getElementById('storageKey').value;
+  var v = localStorage.getItem(k);
+  out('storageOutput', v ? '✓ localStorage["' + k + '"] = "' + v + '"' : '→ Ключ "' + k + '" не найден');
+}
+function storageSession() {
+  var k = document.getElementById('storageKey').value;
+  var v = document.getElementById('storageValue').value;
+  sessionStorage.setItem(k, v);
+  out('storageOutput', '✓ sessionStorage["' + k + '"] = "' + v + '"\n→ Исчезнет после закрытия вкладки');
+}
+function storageClear() {
+  localStorage.clear(); sessionStorage.clear();
+  out('storageOutput', '✓ localStorage и sessionStorage очищены');
+}
+function fillFakeData() {
+  localStorage.setItem('auth_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.fake_token');
+  localStorage.setItem('user_id', 'usr_98372');
+  localStorage.setItem('refresh_token', 'rft_abc123xyz789');
+  localStorage.setItem('last_password_hash', 'md5_a1b2c3d4e5f6');
+  localStorage.setItem('session', JSON.stringify({name:'Тестовый пользователь', email:'test@example.com', role:'admin'}));
+  out('storageOutput', '✓ Записаны фейковые токены и данные сессии\n→ JS инспектор → localStorage покажет все ключи:\n  auth_token, user_id, refresh_token, last_password_hash, session');
+}
+
+// ── 4. Cookies ────────────────────────────────────────────────────────────────
+function setCookieUnsafe() {
+  document.cookie = 'session_id=abc123unsafe; path=/';
+  document.cookie = 'user_prefs=dark_mode=true; path=/';
+  out('cookieOutput', '⚠ Созданы НЕБЕЗОПАСНЫЕ куки (без Secure, HttpOnly, SameSite)\n→ Анализатор «О сайте» пометит как уязвимость\n→ JS может читать: document.cookie', 'orange');
+  document.getElementById('cookieDemo').textContent = 'document.cookie = "' + document.cookie + '"';
+}
+function setCookieSafe() {
+  document.cookie = 'safe_token=xyz789; path=/; SameSite=Strict';
+  out('cookieOutput', '✓ Кука создана с флагом SameSite=Strict\n(Secure и HttpOnly устанавливает только сервер через Set-Cookie)');
+}
+function readCookies() {
+  out('cookieOutput', 'Все куки доступные JS:\n' + (document.cookie || '(пусто)'));
+  document.getElementById('cookieDemo').textContent = 'Всего: ' + (document.cookie.split(';').length) + ' кук';
+}
+function clearCookies() {
+  document.cookie.split(';').forEach(function(c) {
+    document.cookie = c.trim().split('=')[0] + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+  });
+  out('cookieOutput', '✓ Все JS-доступные куки удалены');
+}
+
+// ── 5. Forms ──────────────────────────────────────────────────────────────────
+function interceptForm(e, formId) {
+  e.preventDefault();
+  var form = document.getElementById(formId);
+  var data = new FormData(form);
+  var entries = [];
+  data.forEach(function(v,k) { entries.push(k + '=' + v); });
+  out('formOutput', '⚠ Форма перехвачена!\nAction: ' + form.action + '\nMethod: ' + form.method + '\nДанные: ' + (entries.join(', ') || '(пусто)') + '\n→ JS инспектор → «Формы» показывает все формы страницы', 'orange');
+}
+
+// ── 6. Redirects ──────────────────────────────────────────────────────────────
+var redirectHistory = [window.location.href];
+function updateChain() {
+  var chain = document.getElementById('redirectChain');
+  chain.innerHTML = redirectHistory.slice(-5).map(function(u) { return '<span>' + u.split('/').slice(0,4).join('/') + '</span>'; }).join('');
+}
+function metaRefresh() {
+  out('redirectOutput', '⚠ Meta refresh симулирован (реальный мета-тег перезагрузит страницу через 5с)\n→ JS инспектор → «Meta redirect» обнаружит <meta http-equiv="refresh">');
+  var m = document.createElement('meta');
+  m.httpEquiv = 'refresh'; m.content = '99; url=' + window.location.href;
+  document.head.appendChild(m);
+}
+function jsRedirect() {
+  out('redirectOutput', '→ window.location.href = ... (симуляция — реальный редирект остановлен)\nПолный URL был бы: https://example.com/redirected?from=' + encodeURIComponent(window.location.href));
+  redirectHistory.push('https://example.com/redirected');
+  updateChain();
+}
+function jsReplaceRedirect() {
+  out('redirectOutput', '→ location.replace() симулирован\n→ Этот тип редиректа не добавляет запись в историю браузера — используется для скрытия следов');
+  redirectHistory.push('https://external-site.com/landing');
+  updateChain();
+}
+function historyPush() {
+  history.pushState({test: true}, '', '?page=manipulated&source=meggd_test');
+  out('redirectOutput', '✓ history.pushState() выполнен\n→ URL изменился без перезагрузки: ' + window.location.href + '\n→ Проверь адресную строку браузера');
+  redirectHistory.push(window.location.href);
+  updateChain();
+}
+function simulateChain() {
+  out('redirectOutput', '⚠ Симуляция цепочки: A → B → C → D (4 домена)\n→ Трассировщик редиректов в браузере должен показать все шаги', 'red');
+  ['site-a.com', 'tracker.site-b.net', 'affiliate.site-c.org', 'final-destination.io'].forEach(function(d) {
+    redirectHistory.push('https://' + d + '/path?ref=chain');
+  });
+  updateChain();
+}
+updateChain();
+
+// ── 7. Hidden elements ────────────────────────────────────────────────────────
+function countHidden() {
+  var hidden = document.querySelectorAll('[style*="display:none"],[style*="visibility:hidden"],[hidden]');
+  out('hiddenOutput', '✓ Найдено скрытых элементов: ' + hidden.length + '\n' + Array.from(hidden).map(function(el) { return '  #' + (el.id || 'без id') + ' — ' + (el.textContent.trim() || el.tagName); }).join('\n'));
+}
+function revealHidden() {
+  ['hiddenTracker1','hiddenTracker2','hiddenTracker3'].forEach(function(id) {
+    var el = document.getElementById(id);
+    el.style.display = 'block';
+    el.style.visibility = 'visible';
+    el.style.background = 'rgba(255,0,0,0.2)';
+    el.style.padding = '6px';
+    el.style.borderRadius = '6px';
+    el.style.marginTop = '6px';
+    el.style.fontSize = '11px';
+    el.style.color = '#F44336';
+    el.removeAttribute('hidden');
+  });
+  out('hiddenOutput', '✓ Скрытые элементы показаны выше\n→ Они содержат data-атрибуты с фейковыми ID для слежения');
+}
+function addHidden() {
+  var el = document.createElement('div');
+  el.style.display = 'none';
+  el.textContent = 'Новый скрытый трекер ' + Date.now();
+  el.dataset.track = 'dynamic_' + Math.random().toString(36).substr(2,8);
+  document.body.appendChild(el);
+  out('hiddenOutput', '✓ Добавлен новый скрытый элемент (data-track=' + el.dataset.track + ')\n→ Теперь счётчик скрытых элементов вырастет на 1');
+}
+function canvasFingerprint() {
+  var c = document.createElement('canvas');
+  c.width = 200; c.height = 50;
+  var ctx = c.getContext('2d');
+  ctx.textBaseline = 'top'; ctx.font = '14px Arial';
+  ctx.fillStyle = '#f60'; ctx.fillRect(125,1,62,20);
+  ctx.fillStyle = '#069'; ctx.fillText('MEGGD fingerprint', 2, 15);
+  ctx.fillStyle = 'rgba(102,204,0,0.7)'; ctx.fillText('MEGGD fingerprint', 4, 17);
+  var fp = c.toDataURL().slice(-50);
+  out('hiddenOutput', '⚠ Canvas fingerprint = ....' + fp + '\n→ Уникальный отпечаток устройства — позволяет идентифицировать тебя без кук', 'red');
+}
+
+// ── 8. Iframes ────────────────────────────────────────────────────────────────
+function addIframe(src) {
+  var f = document.createElement('iframe');
+  f.src = src; f.style.width = '100%'; f.style.height = '120px';
+  f.style.border = '1px solid #2a2a44'; f.style.borderRadius = '8px';
+  f.style.marginTop = '6px';
+  document.getElementById('iframeContainer').appendChild(f);
+  out('iframeOutput', '✓ iframe добавлен: ' + src + '\n→ Браузер обнаружит во вкладке Ресурсы → Фреймы');
+}
+function addInlineIframe() {
+  var f = document.createElement('iframe');
+  f.srcdoc = '<html><body style="background:#1a1a2e;color:#6C63FF;padding:10px;font-family:sans-serif"><h3>Inline iframe (srcdoc)</h3><p>Контент встроен напрямую в HTML без внешнего URL</p></body></html>';
+  f.style.width = '100%'; f.style.height = '80px'; f.style.border = '1px solid #2a2a44'; f.style.borderRadius = '8px'; f.style.marginTop = '6px';
+  document.getElementById('iframeContainer').appendChild(f);
+  out('iframeOutput', '✓ srcdoc iframe создан — контент встроен напрямую\n→ Может скрывать вредоносный HTML без внешней ссылки', 'orange');
+}
+function removeIframes() {
+  document.getElementById('iframeContainer').innerHTML = '';
+  out('iframeOutput', '✓ Все iframe удалены');
+}
+
+// ── 9. DOM ────────────────────────────────────────────────────────────────────
+var counterVal = 0;
+function changeCounter(n, reset) {
+  counterVal = reset ? 0 : counterVal + n;
+  document.getElementById('counter').textContent = counterVal;
+}
+function changeTitle() {
+  var t = 'Страница взломана! 💀';
+  document.title = t;
+  out('domOutput', '✓ document.title = "' + t + '"\n→ Заголовок вкладки изменён через JS\n→ Проверь: JS инспектор → window.location');
+}
+function changeBackground() {
+  var colors = ['#0a0a14','#14000a','#000a0a','#0a0800'];
+  var c = colors[Math.floor(Math.random()*colors.length)];
+  document.body.style.background = c;
+  out('domOutput', '✓ document.body.style.background = "' + c + '"\n→ Весь внешний вид страницы изменён через JS');
+}
+function injectElement() {
+  var el = document.createElement('div');
+  el.style.cssText = 'background:rgba(244,67,54,0.15);border:1px solid #F44336;border-radius:8px;padding:12px;margin:6px 0;font-size:12px;color:#F44336;';
+  el.innerHTML = '⚠ <b>Внедрённый элемент</b> — создан через innerHTML. Может содержать фишинговую форму или вредоносный контент.';
+  document.getElementById('injectedArea').appendChild(el);
+  out('domOutput', '✓ Элемент внедрён через innerHTML\n→ Вектор XSS: таким образом встраивается фишинговый контент');
+}
+function removeElement() {
+  var area = document.getElementById('injectedArea');
+  if (area.lastChild) { area.removeChild(area.lastChild); out('domOutput', '✓ Элемент удалён'); }
+  else out('domOutput', '→ Нет элементов для удаления — сначала нажми «Внедрить»');
+}
+function cloneDOM() {
+  var section = document.querySelector('.section');
+  var clone = section.cloneNode(true);
+  clone.style.opacity = '0.5';
+  clone.style.pointerEvents = 'none';
+  document.querySelector('main').appendChild(clone);
+  out('domOutput', '✓ Секция клонирована через cloneNode()\n→ DOM изменён программно');
+}
+
+// ── 10. Network ───────────────────────────────────────────────────────────────
+function pingTracker() {
+  var trackers = ['https://www.google-analytics.com/g/collect?v=2', 'https://analytics.tiktok.com/api/v1/pixel/track', 'https://connect.facebook.net/signals/config/'];
+  var t = trackers[Math.floor(Math.random()*trackers.length)];
+  var img = new Image();
+  img.src = t + '&random=' + Math.random();
+  out('networkOutput', '⚠ Имитация трекера отправлена:\n' + t + '\n→ Должна появиться во вкладке Ресурсы как «Трекер/пиксель слежения»', 'orange');
+}
+function webSocketTest() {
+  try {
+    var ws = new WebSocket('wss://echo.websocket.org');
+    ws.onopen = function() { ws.send('MEGGD test'); out('networkOutput', '✓ WebSocket соединение установлено с echo.websocket.org\n→ JS инспектор → WebSocket покажет доступность API'); ws.close(); };
+    ws.onerror = function() { out('networkOutput', '→ WebSocket недоступен или заблокирован браузером'); };
+  } catch(e) { out('networkOutput', '✗ WebSocket ошибка: ' + e.message, 'red'); }
+}
+function serviceWorkerTest() {
+  if ('serviceWorker' in navigator) {
+    out('networkOutput', '⚠ Service Worker API доступен!\n→ Сервисные воркеры могут перехватывать ВСЕ сетевые запросы браузера\n→ Используются для offline-работы, но и для MITM-атак', 'orange');
+  } else {
+    out('networkOutput', '✓ Service Worker не поддерживается или заблокирован');
+  }
+}
+function sendAllData() {
+  var data = {
+    userAgent: navigator.userAgent,
+    language: navigator.language,
+    platform: navigator.platform,
+    cookieEnabled: navigator.cookieEnabled,
+    onLine: navigator.onLine,
+    screen: screen.width + 'x' + screen.height + ' ' + screen.colorDepth + 'bit',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    memory: navigator.deviceMemory ? navigator.deviceMemory + 'GB RAM' : 'неизвестно',
+    cores: navigator.hardwareConcurrency + ' ядер',
+    touchPoints: navigator.maxTouchPoints,
+    referrer: document.referrer || 'нет',
+    url: window.location.href,
+    localStorage_keys: Object.keys(localStorage).length,
+    cookies: document.cookie ? document.cookie.split(';').length + ' кук' : '0',
+  };
+  out('networkOutput', '⚠ Данные устройства собраны (отправка симулирована):\n' + JSON.stringify(data, null, 2), 'red');
+  document.getElementById('deviceInfo').textContent = Object.entries(data).map(function(e) { return e[0] + ': ' + e[1]; }).join('\n');
+}
+
+// Auto-collect device info on load
+(function() {
+  document.getElementById('deviceInfo').textContent =
+    'userAgent: ' + navigator.userAgent.slice(0,60) + '...\n' +
+    'platform: ' + navigator.platform + '\n' +
+    'language: ' + navigator.language + '\n' +
+    'screen: ' + screen.width + 'x' + screen.height + '\n' +
+    'timezone: ' + Intl.DateTimeFormat().resolvedOptions().timeZone + '\n' +
+    '(нажмите «Собрать данные» для полного отчёта)';
+})();
+</script>
+</body>
+</html>
