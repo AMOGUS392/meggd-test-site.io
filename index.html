@@ -2,796 +2,925 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Multiverse Arena: Top-Down</title>
+    <!-- Блокируем зум и масштабирование на мобильных -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Multiverse RPG: City of Legends</title>
     <style>
-        /* ================= АРХИТЕКТУРА И UI ================= */
-        :root { --ui-bg: rgba(10, 15, 30, 0.8); --text: #fff; --neon: #0ff; }
-        * { box-sizing: border-box; user-select: none; touch-action: none; font-family: 'Courier New', Courier, monospace; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+        :root { 
+            --ui-bg: rgba(15, 15, 25, 0.85); 
+            --neon: #00ffcc; 
+        }
         
-        canvas { display: block; width: 100%; height: 100%; }
+        /* Глобальный сброс для фикса свайпов и скролла */
+        * { 
+            box-sizing: border-box; 
+            user-select: none; 
+            -webkit-user-select: none; 
+            -webkit-touch-callout: none;
+            touch-action: none; /* Запрет жестов браузера */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        
+        body, html { 
+            margin: 0; 
+            padding: 0; 
+            width: 100vw; 
+            height: 100vh; 
+            background: #111; 
+            overflow: hidden; 
+            overscroll-behavior: none; /* Запрет pull-to-refresh */
+        }
+        
+        canvas { 
+            display: block; 
+            width: 100%; 
+            height: 100%; 
+        }
 
-        /* Экраны */
-        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 100; color: white; }
+        /* UI Экраны */
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); z-index: 100; color: white; }
         .screen.active { display: flex; }
-        h1 { font-size: 3rem; text-shadow: 0 0 20px var(--neon); text-transform: uppercase; text-align: center; }
+        h1 { font-size: 3rem; text-shadow: 0 0 20px var(--neon); text-transform: uppercase; text-align: center; margin-bottom: 10px;}
         
-        .char-grid { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; max-width: 800px; }
-        .char-card { background: var(--ui-bg); border: 2px solid #333; padding: 20px; border-radius: 15px; cursor: pointer; transition: 0.3s; text-align: center; width: 180px; }
-        .char-card:hover { border-color: var(--neon); transform: translateY(-10px); box-shadow: 0 10px 20px rgba(0,255,255,0.2); }
-        .char-card h3 { margin: 0 0 10px 0; }
-        .color-preview { width: 50px; height: 50px; border-radius: 50%; margin: 0 auto 10px; box-shadow: 0 0 15px currentColor; }
+        /* Выбор персонажа */
+        .char-grid { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; max-width: 900px; padding: 20px; overflow-y: auto; max-height: 70vh;}
+        .char-card { background: var(--ui-bg); border: 2px solid #444; padding: 15px; border-radius: 10px; cursor: pointer; transition: 0.2s; text-align: center; width: 150px; }
+        .char-card:hover { border-color: var(--neon); transform: translateY(-5px); box-shadow: 0 5px 15px rgba(0,255,204,0.3); }
+        .color-preview { width: 40px; height: 40px; border-radius: 50%; margin: 0 auto 10px; box-shadow: 0 0 10px currentColor; }
 
         /* Игровой HUD */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; display: none; }
         
-        /* Статусы игрока */
-        .player-stats { position: absolute; top: 20px; left: 20px; background: var(--ui-bg); padding: 15px; border-radius: 10px; border-left: 4px solid var(--neon); pointer-events: auto; }
-        .bar-bg { width: 200px; height: 15px; background: #222; border-radius: 8px; margin-top: 5px; overflow: hidden; }
-        .bar-fill { height: 100%; width: 100%; transition: 0.2s; }
-        #hp-fill { background: linear-gradient(90deg, #f00, #ff5555); }
+        .player-stats { position: absolute; top: 20px; left: 20px; background: var(--ui-bg); padding: 15px; border-radius: 10px; border-left: 4px solid var(--neon); color: white; pointer-events: auto;}
+        .bar-bg { width: 200px; height: 15px; background: #333; border-radius: 8px; margin-top: 5px; overflow: hidden; }
+        .bar-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff0055, #ff3333); transition: width 0.2s; }
+
+        /* Мобильное управление */
+        #joystick-zone { position: absolute; bottom: 30px; left: 30px; width: 150px; height: 150px; background: rgba(255,255,255,0.05); border-radius: 50%; pointer-events: auto; display: none; border: 2px solid rgba(255,255,255,0.1); }
+        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 60px; height: 60px; background: rgba(0,255,204,0.5); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 15px rgba(0,255,204,0.5); }
         
-        /* Мобильный Джойстик */
-        #joystick-zone { position: absolute; bottom: 30px; left: 30px; width: 150px; height: 150px; background: rgba(255,255,255,0.1); border-radius: 50%; pointer-events: auto; display: none; border: 2px solid rgba(255,255,255,0.2); }
-        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 60px; height: 60px; background: rgba(0,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 20px rgba(0,255,255,0.5); }
+        .controls-right { position: absolute; bottom: 30px; right: 30px; display: flex; gap: 15px; pointer-events: auto; align-items: flex-end; }
+        
+        .ability-btn { width: 70px; height: 70px; border-radius: 50%; background: var(--ui-bg); border: 2px solid #666; color: white; font-weight: bold; position: relative; overflow: hidden; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 1.2rem;}
+        .interact-btn { width: 80px; height: 80px; background: rgba(255,200,0,0.8); border: 2px solid #fff; color: #000; border-radius: 10px; font-size: 14px; font-weight: bold; display: none; justify-content: center; align-items: center; cursor: pointer; text-transform: uppercase; }
+        
+        .cooldown-overlay { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: rgba(0,0,0,0.7); transition: height 0.1s linear; }
 
-        /* Панель Способностей */
-        .ability-bar { position: absolute; bottom: 30px; right: 30px; display: flex; gap: 15px; pointer-events: auto; }
-        .ability-btn { width: 70px; height: 70px; border-radius: 50%; background: var(--ui-bg); border: 2px solid #555; color: white; font-size: 1.5rem; font-weight: bold; position: relative; overflow: hidden; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
-        .ability-btn.active { border-color: var(--neon); box-shadow: 0 0 20px var(--neon); }
-        .cooldown-overlay { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: rgba(0,0,0,0.7); transition: height 0.1s linear; display: flex; justify-content: center; align-items: center; font-size: 1rem; }
+        .hint-pc { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.5); font-weight: bold; text-align: center;}
 
-        @media (max-width: 768px) {
+        /* Адаптация под мобилки */
+        @media (max-width: 800px) {
             #joystick-zone { display: block; }
-            .ability-btn { width: 60px; height: 60px; }
+            .interact-btn { display: flex; }
+            .hint-pc { display: none; }
             .bar-bg { width: 150px; }
         }
-        
-        .msg-popup { position: absolute; top: 20%; left: 50%; transform: translate(-50%, -50%); font-size: 2rem; color: #fff; text-shadow: 0 0 10px #f00; pointer-events: none; opacity: 0; transition: 0.5s; font-weight: bold; z-index: 50; }
     </style>
 </head>
 <body>
 
-    <!-- Меню Выбора Персонажа -->
+    <!-- Меню -->
     <div id="menu-screen" class="screen active">
-        <h1>Выберите Легенду</h1>
-        <p>ПК: WASD + Мышь (ЛКМ/ПКМ/Пробел) | Смартфон: Джойстик + Кнопки</p>
-        <div class="char-grid" id="char-selector">
-            <!-- Генерируется через JS -->
-        </div>
+        <h1>Арена Мультивселенной</h1>
+        <p>Выбери героя. Город генерируется случайно.</p>
+        <div class="char-grid" id="char-selector"></div>
     </div>
 
-    <!-- Экран смерти -->
+    <!-- Смерть -->
     <div id="death-screen" class="screen">
-        <h1 style="color: red;">ВЫ ПОГИБЛИ</h1>
-        <button onclick="location.reload()" style="padding: 15px 30px; font-size: 1.5rem; background: #222; color: white; border: 2px solid red; border-radius: 10px; cursor: pointer;">ПЕРЕЗАГРУЗКА</button>
+        <h1 style="color: #ff0055; text-shadow: 0 0 20px #ff0055;">ВЫ УБИТЫ</h1>
+        <button onclick="location.reload()" style="padding: 15px 40px; background: #222; color: white; border: 2px solid #ff0055; font-size: 1.5rem; cursor: pointer; border-radius: 10px; text-transform: uppercase;">Возродиться</button>
     </div>
 
-    <!-- Игровой UI -->
+    <!-- Интерфейс Игры -->
     <div id="ui-layer">
         <div class="player-stats">
-            <div style="font-weight:bold; font-size: 1.2rem;" id="player-name">Игрок</div>
-            <div>Убито Боссов: <span id="score-text">0</span></div>
+            <div style="font-weight:bold; font-size: 1.4rem; text-transform: uppercase;" id="player-name">Герой</div>
             <div class="bar-bg"><div class="bar-fill" id="hp-fill"></div></div>
         </div>
 
+        <!-- Зона Джойстика -->
         <div id="joystick-zone">
             <div id="joystick-knob"></div>
         </div>
 
-        <div class="ability-bar" id="abilities-container">
-            <!-- Кнопки генерируются под персонажа -->
+        <!-- Кнопки справа -->
+        <div class="controls-right">
+            <div class="interact-btn" id="btn-interact">Говорить</div>
+            <div style="display: flex; gap: 15px;" id="abilities-container"></div>
         </div>
+        <div class="hint-pc">Управление: WASD - бег | ЛКМ, ПКМ - Скиллы | E - Говорить</div>
     </div>
 
-    <div class="msg-popup" id="center-msg"></div>
-
-    <!-- Основной Canvas -->
     <canvas id="gameCanvas"></canvas>
 
 <script>
 /**
- * MULTIVERSE ARENA ENGINE
- * Массивный движок для Top-Down Action RPG.
+ * ПОЛНЫЙ ИСХОДНЫЙ КОД ДВИЖКА MULTIVERSE RPG
+ * Содержит: Продвинутый Multi-touch, Генератор Города, ИИ Диалогов и Систему Способностей.
  */
 
-// ================= UTILS & MATH =================
+// Тотальная блокировка скролла и зума документа
+document.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
+document.addEventListener('gesturestart', function(e) { e.preventDefault(); });
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 let width = canvas.width = window.innerWidth;
 let height = canvas.height = window.innerHeight;
 
-window.addEventListener('resize', () => {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
+window.addEventListener('resize', () => { 
+    width = canvas.width = window.innerWidth; 
+    height = canvas.height = window.innerHeight; 
 });
 
+// Математика векторов
 class Vec2 {
     constructor(x, y) { this.x = x; this.y = y; }
     add(v) { return new Vec2(this.x + v.x, this.y + v.y); }
     sub(v) { return new Vec2(this.x - v.x, this.y - v.y); }
     mult(n) { return new Vec2(this.x * n, this.y * n); }
-    mag() { return Math.sqrt(this.x * this.x + this.y * this.y); }
+    mag() { return Math.sqrt(this.x*this.x + this.y*this.y); }
     normalize() { let m = this.mag(); return m === 0 ? new Vec2(0,0) : new Vec2(this.x/m, this.y/m); }
     dist(v) { return this.sub(v).mag(); }
 }
 
 function rand(min, max) { return Math.random() * (max - min) + min; }
+function randInt(min, max) { return Math.floor(rand(min, max + 1)); }
 
-// ================= INPUT SYSTEM =================
+// ================= 1. СИСТЕМА ВВОДА (Включая Multi-touch Джойстик) =================
 const Input = {
-    keys: {},
-    mouse: new Vec2(width/2, height/2),
-    mouseDown: false,
-    joyVector: new Vec2(0, 0),
-    isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
-    
-    init() {
-        window.addEventListener('keydown', e => this.keys[e.code] = true);
-        window.addEventListener('keyup', e => this.keys[e.code] = false);
-        window.addEventListener('mousemove', e => { this.mouse.x = e.clientX; this.mouse.y = e.clientY; });
-        window.addEventListener('mousedown', e => { this.mouseDown = true; if(!this.isMobile) game.tryUseAbility(0); });
-        window.addEventListener('mouseup', e => this.mouseDown = false);
-        window.addEventListener('contextmenu', e => { e.preventDefault(); if(!this.isMobile) game.tryUseAbility(1); });
+    keys: {}, 
+    mouse: new Vec2(width/2, height/2), 
+    joyDir: new Vec2(0,0), 
+    interactFlag: false,
+    activeTouchId: null,
 
-        // Джойстик
+    init() {
+        // ПК Управление
+        window.addEventListener('keydown', e => { 
+            this.keys[e.code] = true; 
+            if(e.code === 'KeyE') this.interactFlag = true; 
+        });
+        window.addEventListener('keyup', e => this.keys[e.code] = false);
+        window.addEventListener('mousemove', e => { 
+            this.mouse.x = e.clientX; 
+            this.mouse.y = e.clientY; 
+        });
+        window.addEventListener('mousedown', e => { 
+            if(e.button === 0) game.tryAbility(0); 
+            else if(e.button === 2) game.tryAbility(1); 
+        });
+        window.addEventListener('contextmenu', e => e.preventDefault());
+
+        // Мобильный Джойстик (Надежный Multi-touch)
         const jZone = document.getElementById('joystick-zone');
         const jKnob = document.getElementById('joystick-knob');
         let jCenter = new Vec2(0,0);
 
-        const handleTouch = (e) => {
+        const handleTouchStart = (e) => {
             e.preventDefault();
-            let touch = e.targetTouches[0];
-            if (!touch) return;
             let rect = jZone.getBoundingClientRect();
-            jCenter = new Vec2(rect.left + rect.width/2, rect.top + rect.height/2);
-            let tPos = new Vec2(touch.clientX, touch.clientY);
-            let dir = tPos.sub(jCenter);
-            if (dir.mag() > 50) dir = dir.normalize().mult(50);
-            
-            jKnob.style.transform = `translate(calc(-50% + ${dir.x}px), calc(-50% + ${dir.y}px))`;
-            this.joyVector = dir.normalize();
+            for(let i=0; i<e.changedTouches.length; i++) {
+                let t = e.changedTouches[i];
+                // Если тапнули внутри зоны джойстика
+                if(t.clientX >= rect.left && t.clientX <= rect.right && t.clientY >= rect.top && t.clientY <= rect.bottom) {
+                    this.activeTouchId = t.identifier;
+                    jCenter = new Vec2(rect.left + rect.width/2, rect.top + rect.height/2);
+                    this.updateJoystick(t.clientX, t.clientY, jCenter, jKnob);
+                }
+            }
         };
 
-        jZone.addEventListener('touchstart', handleTouch);
-        jZone.addEventListener('touchmove', handleTouch);
-        jZone.addEventListener('touchend', (e) => {
+        const handleTouchMove = (e) => {
             e.preventDefault();
-            jKnob.style.transform = `translate(-50%, -50%)`;
-            this.joyVector = new Vec2(0,0);
-        });
-    },
-
-    getMovementDir() {
-        if (this.joyVector.mag() > 0.1) return this.joyVector;
-        let dir = new Vec2(0, 0);
-        if (this.keys['KeyW']) dir.y -= 1;
-        if (this.keys['KeyS']) dir.y += 1;
-        if (this.keys['KeyA']) dir.x -= 1;
-        if (this.keys['KeyD']) dir.x += 1;
-        return dir.normalize();
-    },
-
-    getAimDir(playerPos) {
-        if (this.isMobile) {
-            // На мобилках целимся туда же, куда идем, либо в ближайшего врага
-            let nearest = null;
-            let minDist = 500;
-            for(let e of game.enemies) {
-                let d = e.pos.dist(playerPos);
-                if (d < minDist) { minDist = d; nearest = e; }
+            for(let i=0; i<e.changedTouches.length; i++) {
+                let t = e.changedTouches[i];
+                if(t.identifier === this.activeTouchId) {
+                    this.updateJoystick(t.clientX, t.clientY, jCenter, jKnob);
+                }
             }
-            if (nearest) return nearest.pos.sub(playerPos).normalize();
-            return this.getMovementDir().mag() > 0 ? this.getMovementDir() : new Vec2(1, 0);
-        } else {
-            // На ПК целимся мышкой
-            let screenPlayerPos = new Vec2(width/2, height/2); // Камера всегда по центру
-            return this.mouse.sub(screenPlayerPos).normalize();
-        }
-    }
-};
+        };
 
-// ================= GAME CONTENT & ABILITIES =================
-
-// База данных эффектов и способностей
-const Abilities = {
-    // === GOJO ===
-    InfinityPunch: {
-        name: "Удар Бесконечности", cd: 0.5, color: "#fff",
-        execute: (caster, aimDir) => {
-            game.addProjectile(caster, caster.pos.add(aimDir.mult(30)), aimDir, 15, 15, 20, "#fff", "melee");
-        }
-    },
-    CursedRed: {
-        name: "Красный", cd: 4, color: "#f00",
-        execute: (caster, aimDir) => {
-            game.addParticleExplosion(caster.pos, "#f00", 30);
-            game.addProjectile(caster, caster.pos.add(aimDir.mult(40)), aimDir, 8, 30, 50, "#f00", "blast");
-        }
-    },
-    HollowPurple: {
-        name: "Фиолетовый", cd: 10, color: "#8a2be2",
-        execute: (caster, aimDir) => {
-            game.showPopup("HOLLOW PURPLE!", "#8a2be2");
-            game.shake = 20;
-            // Медленный, огромный, всепробивающий
-            let p = game.addProjectile(caster, caster.pos, aimDir, 4, 80, 150, "#8a2be2", "pierce");
-            p.lifespan = 200; // летит далеко
-        }
-    },
-
-    // === SUKUNA ===
-    Dismantle: {
-        name: "Разрез", cd: 0.3, color: "#ff2222",
-        execute: (caster, aimDir) => {
-            let spread = (Math.random() - 0.5) * 0.5;
-            let dir = new Vec2(aimDir.x * Math.cos(spread) - aimDir.y * Math.sin(spread),
-                               aimDir.x * Math.sin(spread) + aimDir.y * Math.cos(spread));
-            game.addProjectile(caster, caster.pos, dir, 25, 10, 15, "#ff0000", "slash");
-        }
-    },
-    FireArrow: {
-        name: "Огненная Стрела", cd: 8, color: "#ff8800",
-        execute: (caster, aimDir) => {
-            game.showPopup("FUUGA...", "#ff8800");
-            let p = game.addProjectile(caster, caster.pos, aimDir, 18, 20, 100, "#ff8800", "explosive");
-            p.lifespan = 100;
-        }
-    },
-
-    // === SANS ===
-    BoneThrow: {
-        name: "Кость", cd: 0.6, color: "#fff",
-        execute: (caster, aimDir) => {
-            game.addProjectile(caster, caster.pos, aimDir, 12, 12, 25, "#fff", "bone");
-        }
-    },
-    GasterBlaster: {
-        name: "Бластер", cd: 6, color: "#00ffff",
-        execute: (caster, aimDir) => {
-            game.showPopup("Gaster Blaster!", "#00ffff");
-            // Луч: создаем серию невидимых прожектайлов или один длинный хитбокс
-            for(let i=1; i<=15; i++) {
-                setTimeout(() => {
-                    game.addProjectile(caster, caster.pos.add(aimDir.mult(i*40)), aimDir, 0.1, 40, 30, "#00ffff", "beam");
-                    game.addParticleExplosion(caster.pos.add(aimDir.mult(i*40)), "#00ffff", 5);
-                }, i * 20);
+        const handleTouchEnd = (e) => {
+            e.preventDefault();
+            for(let i=0; i<e.changedTouches.length; i++) {
+                let t = e.changedTouches[i];
+                if(t.identifier === this.activeTouchId) {
+                    this.activeTouchId = null;
+                    jKnob.style.transform = `translate(-50%, -50%)`;
+                    this.joyDir = new Vec2(0,0);
+                }
             }
-            game.shake = 10;
-        }
-    },
+        };
 
-    // === CUPHEAD ===
-    Peashooter: {
-        name: "Выстрел", cd: 0.15, color: "#00ccff",
-        execute: (caster, aimDir) => {
-            game.addProjectile(caster, caster.pos, aimDir, 15, 8, 10, "#00ccff", "bullet");
-        }
-    },
-    MegaBlast: {
-        name: "Мега Бласт", cd: 5, color: "#ff0000",
-        execute: (caster, aimDir) => {
-            game.addProjectile(caster, caster.pos, aimDir, 20, 25, 60, "#ff0000", "bullet");
-            game.addProjectile(caster, caster.pos, aimDir.add(new Vec2(0.2,0.2)).normalize(), 18, 15, 40, "#ff0000", "bullet");
-            game.addProjectile(caster, caster.pos, aimDir.add(new Vec2(-0.2,-0.2)).normalize(), 18, 15, 40, "#ff0000", "bullet");
-        }
-    }
-};
-
-const CHARACTERS = {
-    "Gojo": { color: "#8a2be2", hp: 1000, speed: 6, size: 25, abilities:[Abilities.InfinityPunch, Abilities.CursedRed, Abilities.HollowPurple] },
-    "Sukuna": { color: "#ff2222", hp: 1200, speed: 7, size: 25, abilities:[Abilities.Dismantle, Abilities.FireArrow] },
-    "Sans": { color: "#ffffff", hp: 300, speed: 8, size: 20, abilities:[Abilities.BoneThrow, Abilities.GasterBlaster] },
-    "Cuphead": { color: "#ff0000", hp: 600, speed: 6, size: 22, abilities:[Abilities.Peashooter, Abilities.MegaBlast] },
-    "Frisk": { color: "#ff00ff", hp: 800, speed: 5, size: 20, abilities: [Abilities.BoneThrow] }, // Упрощенный
-    "Mob": { color: "#555555", hp: 100, speed: 3, size: 20, abilities: [Abilities.InfinityPunch] } // Базовый враг
-};
-
-// ================= CLASSES =================
-
-class Camera {
-    constructor() { this.pos = new Vec2(0,0); }
-    update(targetPos) {
-        // Плавное следование
-        this.pos.x += (targetPos.x - width/2 - this.pos.x) * 0.1;
-        this.pos.y += (targetPos.y - height/2 - this.pos.y) * 0.1;
-    }
-}
-
-class Entity {
-    constructor(x, y, profile, isPlayer = false) {
-        this.pos = new Vec2(x, y);
-        this.vel = new Vec2(0, 0);
-        this.profile = profile;
-        this.hp = profile.hp;
-        this.maxHp = profile.hp;
-        this.speed = profile.speed;
-        this.size = profile.size;
-        this.color = profile.color;
-        this.isPlayer = isPlayer;
-        this.cooldowns = [0, 0, 0]; // Для 3-х скиллов
+        jZone.addEventListener('touchstart', handleTouchStart, {passive: false});
+        jZone.addEventListener('touchmove', handleTouchMove, {passive: false});
+        jZone.addEventListener('touchend', handleTouchEnd, {passive: false});
+        jZone.addEventListener('touchcancel', handleTouchEnd, {passive: false});
         
-        // Для анимации
-        this.damageFlash = 0;
+        // Кнопка Взаимодействия
+        const btnInteract = document.getElementById('btn-interact');
+        btnInteract.addEventListener('touchstart', (e) => { 
+            e.preventDefault(); 
+            this.interactFlag = true; 
+        }, {passive: false});
+    },
+
+    updateJoystick(x, y, center, knob) {
+        let dir = new Vec2(x, y).sub(center);
+        let maxDist = 50;
+        if(dir.mag() > maxDist) dir = dir.normalize().mult(maxDist);
+        knob.style.transform = `translate(calc(-50% + ${dir.x}px), calc(-50% + ${dir.y}px))`;
+        this.joyDir = dir.normalize();
+    },
+
+    getDir() {
+        if(this.joyDir.mag() > 0.1) return this.joyDir;
+        let d = new Vec2(0,0);
+        if(this.keys['KeyW']) d.y -= 1; 
+        if(this.keys['KeyS']) d.y += 1;
+        if(this.keys['KeyA']) d.x -= 1; 
+        if(this.keys['KeyD']) d.x += 1;
+        return d.normalize();
+    },
+
+    getAim(playerPos, isMobile) {
+        if(isMobile) {
+            // На мобилках: Авто-аим (наводимся на ближайшего врага)
+            let n = null, mD = 600;
+            for(let e of game.entities) { 
+                if(e !== game.player && e.hp > 0 && e.state === 'HOSTILE') { 
+                    let d = e.pos.dist(playerPos); 
+                    if(d < mD){ mD = d; n = e; } 
+                } 
+            }
+            // Если нет врагов, стреляем туда, куда идем
+            return n ? n.pos.sub(playerPos).normalize() : (this.getDir().mag() > 0 ? this.getDir() : new Vec2(1,0));
+        }
+        // На ПК: Стреляем в сторону курсора мыши (относительно центра экрана)
+        return new Vec2(this.mouse.x - width/2, this.mouse.y - height/2).normalize();
+    }
+};
+
+// ================= 2. БАЗА СПОСОБНОСТЕЙ И ПЕРСОНАЖЕЙ =================
+const Abilities = {
+    // Годжо
+    Purple: { name: "Фиолетовый", cd: 8, exec: (c, dir) => { game.shoot(c, dir, 5, 60, 200, "#8a2be2", "pierce"); game.shake=15; c.say("HOLLOW PURPLE!", 2); } },
+    Red: { name: "Красный", cd: 3, exec: (c, dir) => { game.shoot(c, dir, 12, 25, 50, "#ff0000", "blast"); } },
+    
+    // Сукуна
+    Dismantle: { name: "Разрез", cd: 0.5, exec: (c, dir) => { let s = (Math.random()-0.5)*0.5; let d = new Vec2(dir.x*Math.cos(s)-dir.y*Math.sin(s), dir.x*Math.sin(s)+dir.y*Math.cos(s)); game.shoot(c, d, 20, 15, 20, "#ff2222", "slash"); } },
+    Fire: { name: "Стрела", cd: 7, exec: (c, dir) => { game.shoot(c, dir, 15, 20, 100, "#ff8800", "explosive"); c.say("Фууга...", 2); } },
+    
+    // Джотаро
+    Ora: { name: "Ора-Ора", cd: 0.3, exec: (c, dir) => { game.shoot(c, dir, 20, 20, 15, "#cc00ff", "melee"); game.addParticle(c.pos.add(dir.mult(30)), "#cc00ff", 10); } },
+    TimeStop: { name: "За Вардо", cd: 15, exec: (c, dir) => { game.timeStop = 180; game.timeStopper = c; c.say("STAR PLATINUM: ZA WARUDO!", 3); game.shake=20; } },
+    
+    // Наруто
+    Rasengan: { name: "Расенган", cd: 4, exec: (c, dir) => { c.vel = dir.mult(30); game.shoot(c, dir, 25, 30, 80, "#00ccff", "melee"); c.say("Расенган!", 1); } },
+    Shuriken: { name: "Сюрикен", cd: 1, exec: (c, dir) => { game.shoot(c, dir, 18, 12, 15, "#aaa", "shuriken"); } },
+    
+    // Луффи
+    Pistol: { name: "Пистолет", cd: 1.5, exec: (c, dir) => { game.shoot(c, dir, 30, 15, 40, "#f4a460", "beam"); } },
+    Gatling: { name: "Гатлинг", cd: 5, exec: (c, dir) => { c.say("Gomu Gomu no...", 1); for(let i=0;i<10;i++) setTimeout(()=> game.shoot(c, dir.add(new Vec2((Math.random()-0.5)*0.3, (Math.random()-0.5)*0.3)).normalize(), 25, 15, 10, "#f4a460", "melee"), i*100); } },
+    
+    // Санс
+    Bone: { name: "Кость", cd: 0.5, exec: (c, dir) => { game.shoot(c, dir, 12, 10, 25, "#fff", "bone"); } },
+    Blaster: { name: "Бластер", cd: 6, exec: (c, dir) => { c.say("Get dunked on", 2); for(let i=1; i<10; i++) setTimeout(()=> game.shoot(c, dir, 0, 40, 30, "#00ffff", "beam_static", c.pos.add(dir.mult(i*50))), i*50); } }
+};
+
+const DB = {
+    "Gojo":   { c: "#8a2be2", hp: 1000, spd: 6, sz: 20, skills: [Abilities.Red, Abilities.Purple] },
+    "Sukuna": { c: "#ff2222", hp: 1200, spd: 7, sz: 22, skills: [Abilities.Dismantle, Abilities.Fire] },
+    "Jotaro": { c: "#222244", hp: 800,  spd: 5, sz: 22, skills: [Abilities.Ora, Abilities.TimeStop] },
+    "Naruto": { c: "#ffaa00", hp: 700,  spd: 8, sz: 18, skills: [Abilities.Shuriken, Abilities.Rasengan] },
+    "Luffy":  { c: "#ff0000", hp: 900,  spd: 6, sz: 20, skills:[Abilities.Pistol, Abilities.Gatling] },
+    "Sans":   { c: "#ffffff", hp: 400,  spd: 7, sz: 16, skills: [Abilities.Bone, Abilities.Blaster] },
+    "Citizen":{ c: "#888888", hp: 200,  spd: 3, sz: 18, skills: [Abilities.Ora] }
+};
+
+// ================= 3. ГЕНЕРАТОР ГОРОДА (Procedural Map) =================
+const MapGen = {
+    w: 4000, h: 4000,
+    buildings:[], roads: [], wells:[],
+
+    generate() {
+        // Дороги
+        for(let x = 200; x < this.w; x += 600) this.roads.push({x: x, y: 0, w: 100, h: this.h});
+        for(let y = 200; y < this.h; y += 600) this.roads.push({x: 0, y: y, w: this.w, h: 100});
+        
+        // Здания
+        for(let x = 0; x < this.w; x += 600) {
+            for(let y = 0; y < this.h; y += 600) {
+                if(Math.random() < 0.7) {
+                    let bw = randInt(150, 250), bh = randInt(150, 250);
+                    let bx = x + 300 + rand(-50,50) - bw/2;
+                    let by = y + 300 + rand(-50,50) - bh/2;
+                    let color =["#2b2b36", "#3d3027", "#1f2b38", "#2a362a"][randInt(0,3)];
+                    this.buildings.push({x: bx, y: by, w: bw, h: bh, c: color});
+                } else if(Math.random() < 0.5) {
+                    this.wells.push({x: x + 300, y: y + 300, r: 40}); // Колодцы
+                }
+            }
+        }
+    },
+
+    draw(ctx, camX, camY) {
+        // Трава фона
+        ctx.fillStyle = "#264a2e"; 
+        ctx.fillRect(0, 0, width, height);
+        
+        ctx.save();
+        ctx.translate(width/2 - camX, height/2 - camY);
+        
+        // Дороги
+        ctx.fillStyle = "#4a4e59";
+        for(let r of this.roads) {
+            if(r.x + r.w > camX - width/2 && r.x < camX + width/2 && r.y + r.h > camY - height/2 && r.y < camY + height/2) {
+                ctx.fillRect(r.x, r.y, r.w, r.h);
+            }
+        }
+        
+        // Колодцы
+        for(let w of this.wells) {
+            if(w.x + w.r > camX - width/2 && w.x - w.r < camX + width/2 && w.y + w.r > camY - height/2 && w.y - w.r < camY + height/2) {
+                ctx.fillStyle = "#333"; ctx.beginPath(); ctx.arc(w.x, w.y, w.r, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = "#0ff"; ctx.beginPath(); ctx.arc(w.x, w.y, w.r - 10, 0, Math.PI*2); ctx.fill();
+            }
+        }
+        
+        // Здания с эффектом объема (крыши и тени)
+        for(let b of this.buildings) {
+            if(b.x + b.w > camX - width/2 && b.x < camX + width/2 && b.y + b.h > camY - height/2 && b.y < camY + height/2) {
+                ctx.fillStyle = "#111"; // Тень
+                ctx.fillRect(b.x + 15, b.y + 15, b.w, b.h);
+                ctx.fillStyle = b.c; // Стена
+                ctx.fillRect(b.x, b.y, b.w, b.h);
+                ctx.fillStyle = "rgba(255,255,255,0.05)"; // Крыша
+                ctx.fillRect(b.x, b.y, b.w, b.h - 20);
+            }
+        }
+        ctx.restore();
+    },
+
+    collide(e) {
+        // Коллизия со зданиями (круг vs прямоугольник)
+        for(let b of this.buildings) {
+            let tX = Math.max(b.x, Math.min(e.pos.x, b.x + b.w));
+            let tY = Math.max(b.y, Math.min(e.pos.y, b.y + b.h));
+            let dX = e.pos.x - tX;
+            let dY = e.pos.y - tY;
+            let dist = Math.sqrt(dX*dX + dY*dY);
+            
+            if(dist < e.sz) {
+                let over = e.sz - dist;
+                let dir = new Vec2(dX, dY).normalize();
+                if(dir.mag() === 0) dir = new Vec2(1, 0); // Выталкиваем, если центры совпали
+                e.pos = e.pos.add(dir.mult(over));
+            }
+        }
+        
+        // Коллизия с колодцами
+        for(let w of this.wells) {
+            let d = e.pos.dist(new Vec2(w.x, w.y));
+            if(d < w.r + e.sz) {
+                let over = (w.r + e.sz) - d;
+                e.pos = e.pos.add(e.pos.sub(new Vec2(w.x, w.y)).normalize().mult(over));
+            }
+        }
+
+        // Ограничитель карты
+        e.pos.x = Math.max(e.sz, Math.min(this.w - e.sz, e.pos.x));
+        e.pos.y = Math.max(e.sz, Math.min(this.h - e.sz, e.pos.y));
+    }
+};
+
+// ================= 4. КЛАССЫ СУЩНОСТЕЙ =================
+class Entity {
+    constructor(n, x, y, p, isPlayer=false) {
+        this.name = n; 
+        this.pos = new Vec2(x, y); 
+        this.vel = new Vec2(0,0);
+        this.prof = p; 
+        this.hp = p.hp; 
+        this.mHp = p.hp; 
+        this.spd = p.spd; 
+        this.sz = p.sz; 
+        this.c = p.c;
+        this.isP = isPlayer; 
+        this.cds = [0,0,0]; 
+        this.dmgFl = 0;
+        
+        // AI и Социальная система
+        this.state = 'WANDER'; // WANDER, CHAT, SPAR, HOSTILE
+        this.target = null;
+        this.chatTxt = ""; 
+        this.chatTm = 0;
+        this.aiTm = 0;
     }
 
+    say(txt, timeInSeconds=3) { 
+        this.chatTxt = txt; 
+        this.chatTm = timeInSeconds * 60; 
+    }
+    
     update(dt) {
+        // ZA WARUDO! Остановка времени
+        if(game.timeStop > 0 && this !== game.timeStopper) return;
+
+        // Физика
         this.pos = this.pos.add(this.vel);
         this.vel = this.vel.mult(0.8); // Трение
-
-        // Границы мира (3000 x 3000)
-        this.pos.x = Math.max(0, Math.min(3000, this.pos.x));
-        this.pos.y = Math.max(0, Math.min(3000, this.pos.y));
-
-        for(let i=0; i<this.cooldowns.length; i++) {
-            if(this.cooldowns[i] > 0) this.cooldowns[i] -= dt;
+        MapGen.collide(this);
+        
+        // Кулдауны и эффекты
+        for(let i=0; i<this.cds.length; i++) {
+            if(this.cds[i] > 0) this.cds[i] -= dt;
         }
-        if(this.damageFlash > 0) this.damageFlash -= dt;
+        if(this.dmgFl > 0) this.dmgFl -= dt;
+        if(this.chatTm > 0) this.chatTm--;
+
+        // ИИ обновляется только для NPC
+        if(!this.isP) this.runAI(dt);
+    }
+    
+    takeDmg(amt, dir, source) {
+        if(this.hp <= 0) return;
+        
+        this.hp -= amt; 
+        this.dmgFl = 0.1; 
+        this.vel = this.vel.add(dir.mult(8)); // Отбрасывание
+        
+        // Всплывающий урон
+        game.texts.push({
+            t: Math.floor(amt), 
+            p: new Vec2(this.pos.x + rand(-10,10), this.pos.y - 20), 
+            l: 1
+        });
+        
+        // Реакция ИИ на урон (если не дружеский спарринг)
+        if(!this.isP && this.state !== 'SPAR') {
+            this.state = 'HOSTILE'; 
+            this.target = source;
+            if(Math.random() < 0.3 && this.chatTm <= 0) this.say("Я тебя уничтожу!", 2);
+        }
+        
+        // Смерть
+        if(this.hp <= 0) {
+            for(let i=0; i<30; i++) game.addParticle(this.pos, this.c, rand(3,8));
+            if(this.isP) game.triggerDeath();
+        }
+    }
+
+    runAI(dt) {
+        this.aiTm--;
+        
+        if(this.state === 'WANDER') {
+            if(this.aiTm <= 0) {
+                // Бродим случайно
+                this.vel = new Vec2(rand(-1,1), rand(-1,1)).normalize().mult(this.spd * 0.3);
+                this.aiTm = randInt(60, 180);
+                
+                // Случайный разговор с другим NPC
+                if(Math.random() < 0.2) {
+                    let near = game.entities.find(e => e !== this && !e.isP && e.state === 'WANDER' && e.pos.dist(this.pos) < 300);
+                    if(near) {
+                        this.target = near; 
+                        this.state = 'CHAT'; 
+                        near.target = this; 
+                        near.state = 'CHAT';
+                        this.say(rand() > 0.5 ? "Давай устроим тренировку!" : "Покажешь свои навыки?", 3);
+                        this.aiTm = 120; // Ждем ответа
+                    }
+                }
+            }
+        } 
+        else if(this.state === 'CHAT') {
+            if(this.target && this.aiTm === 60) {
+                if(this.target.target === this && this.chatTxt === "") {
+                    let ans =["Погнали!", "Только без смертей.", "Я тебя размажу!"];
+                    this.say(ans[randInt(0,2)], 3);
+                }
+            }
+            if(this.aiTm <= 0 && this.target) {
+                this.state = 'SPAR'; 
+                this.target.state = 'SPAR';
+            }
+        }
+        else if(this.state === 'SPAR' || this.state === 'HOSTILE') {
+            if(!this.target || this.target.hp <= 0) { 
+                this.state = 'WANDER'; 
+                return; 
+            }
+            
+            let dist = this.pos.dist(this.target.pos);
+            let dir = this.target.pos.sub(this.pos).normalize();
+            
+            // Если спарринг и у кого-то осталось мало ХП - прекращаем бой
+            if(this.state === 'SPAR' && (this.hp < this.mHp * 0.2 || this.target.hp < this.target.mHp * 0.2)) {
+                this.state = 'WANDER'; 
+                this.target.state = 'WANDER';
+                this.hp = this.mHp; 
+                this.target.hp = this.target.mHp; // Лечимся
+                this.say("Отличный бой!", 3);
+                this.target = null; 
+                return;
+            }
+
+            // ИИ Движение
+            if(dist > 200) this.vel = this.vel.add(dir.mult(this.spd * 0.05));
+            else if(dist < 100) this.vel = this.vel.add(dir.mult(-this.spd * 0.05));
+
+            // ИИ Атака
+            if(dist < 500 && Math.random() < 0.05) {
+                let sk = this.prof.skills[randInt(0, this.prof.skills.length - 1)];
+                let idx = this.prof.skills.indexOf(sk);
+                if(this.cds[idx] <= 0) {
+                    // Упреждение цели (aim prediction)
+                    let aim = (Math.random() < 0.7) ? this.target.pos.add(this.target.vel.mult(10)).sub(this.pos).normalize() : dir;
+                    sk.exec(this, aim);
+                    this.cds[idx] = sk.cd + rand(1, 3);
+                }
+            }
+        }
     }
 
     draw(ctx) {
-        ctx.save();
+        ctx.save(); 
         ctx.translate(this.pos.x, this.pos.y);
-
-        // Тень
-        ctx.fillStyle = "rgba(0,0,0,0.5)";
-        ctx.beginPath();
-        ctx.ellipse(0, this.size, this.size, this.size/2, 0, 0, Math.PI*2);
-        ctx.fill();
-
-        // Тело
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = this.color;
-        ctx.fillStyle = this.damageFlash > 0 ? "#fff" : this.color;
         
-        // Стилизация отрисовки в зависимости от персонажа
-        ctx.beginPath();
-        if (this.color === "#ffffff") { // Sans
-            ctx.arc(0, 0, this.size, 0, Math.PI*2);
-            ctx.fill();
-            ctx.fillStyle = "#000";
-            ctx.fillRect(-8, -5, 6, 8); // глаз
-            ctx.fillRect(2, -5, 6, 8); // глаз
-        } else {
-            // Стандартный квадрат/ромб
-            ctx.roundRect(-this.size, -this.size, this.size*2, this.size*2, 8);
-            ctx.fill();
+        // Тень
+        ctx.fillStyle = "rgba(0,0,0,0.5)"; 
+        ctx.beginPath(); 
+        ctx.ellipse(0, this.sz, this.sz, this.sz/2, 0, 0, Math.PI*2); 
+        ctx.fill();
+        
+        // Тело
+        ctx.fillStyle = this.dmgFl > 0 ? "#fff" : this.c;
+        
+        if(this.name === "Sans") { 
+            ctx.beginPath(); ctx.arc(0,0,this.sz,0,Math.PI*2); ctx.fill(); 
+            ctx.fillStyle="#000"; ctx.fillRect(-6,-4,4,6); ctx.fillRect(2,-4,4,6); 
+        } else { 
+            ctx.beginPath(); 
+            ctx.roundRect(-this.sz, -this.sz, this.sz*2, this.sz*2, 8); 
+            ctx.fill(); 
         }
 
-        // Полоска ХП (для врагов)
-        if (!this.isPlayer) {
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = "#222";
-            ctx.fillRect(-this.size, -this.size - 15, this.size*2, 6);
-            ctx.fillStyle = "#f00";
-            let hpW = (this.hp / this.maxHp) * (this.size*2);
-            ctx.fillRect(-this.size, -this.size - 15, hpW, 6);
+        // Полоска ХП (Только если ранен)
+        if(!this.isP && this.hp < this.mHp) {
+            ctx.fillStyle = "#222"; 
+            ctx.fillRect(-this.sz, -this.sz - 15, this.sz*2, 5);
+            ctx.fillStyle = this.state === 'HOSTILE' ? "#f00" : "#0f0"; 
+            ctx.fillRect(-this.sz, -this.sz - 15, (this.hp/this.mHp)*this.sz*2, 5);
         }
-
+        
         ctx.restore();
-    }
-
-    takeDamage(amt, sourceDir) {
-        this.hp -= amt;
-        this.damageFlash = 0.1;
-        this.vel = this.vel.add(sourceDir.mult(10)); // Отбрасывание
-        game.addFloatingText(Math.floor(amt), this.pos);
-        if (this.hp <= 0 && !this.isPlayer) {
-            game.addParticleExplosion(this.pos, this.color, 50);
-            if(this.profile !== CHARACTERS["Mob"]) game.bossesKilled++;
-            document.getElementById('score-text').innerText = game.bossesKilled;
-        }
     }
 }
 
 class Projectile {
-    constructor(owner, pos, dir, speed, size, damage, color, type) {
-        this.owner = owner;
-        this.pos = pos;
-        this.dir = dir;
-        this.vel = dir.mult(speed);
-        this.size = size;
-        this.damage = damage;
-        this.color = color;
+    constructor(owner, pos, dir, spd, sz, dmg, color, type) {
+        this.ow = owner; 
+        this.pos = pos; 
+        this.dir = dir; 
+        this.vel = dir.mult(spd); 
+        this.sz = sz; 
+        this.dmg = dmg; 
+        this.c = color; 
         this.type = type;
-        this.lifespan = 50; // в тиках
-        this.markedForDeletion = false;
-        this.hitEntities = new Set(); // для pierce
+        
+        this.life = (type === "beam_static" || type === "melee") ? 10 : 60; 
+        this.hits = new Set(); 
+        this.del = false;
     }
 
     update() {
-        this.pos = this.pos.add(this.vel);
-        this.lifespan--;
-        if(this.lifespan <= 0) this.markedForDeletion = true;
+        // Заморозка снарядов во времени
+        if(game.timeStop > 0 && this.ow !== game.timeStopper) return; 
+        
+        if(this.type !== "beam_static") this.pos = this.pos.add(this.vel);
+        
+        this.life--; 
+        if(this.life <= 0) this.del = true;
+        
+        if(this.type === "blast") this.sz += 0.5;
 
-        if (this.type === "blast") this.size += 1;
-
-        // Создание красивого следа
-        if (Math.random() < 0.5) {
-            game.particles.push(new Particle(this.pos.x, this.pos.y, this.color, rand(2, this.size/2)));
+        // Коллизия со зданиями (кроме лазеров)
+        if(this.type !== "pierce" && this.type !== "beam_static") {
+            for(let b of MapGen.buildings) {
+                if(this.pos.x > b.x && this.pos.x < b.x + b.w && this.pos.y > b.y && this.pos.y < b.y + b.h) {
+                    this.del = true; 
+                    game.addParticle(this.pos, this.c, 5); 
+                    return;
+                }
+            }
         }
 
-        // Коллизии
-        let targets = this.owner.isPlayer ? game.enemies : [game.player];
-        for(let t of targets) {
-            if (t.hp > 0 && !this.hitEntities.has(t)) {
-                if (this.pos.dist(t.pos) < this.size + t.size) {
-                    t.takeDamage(this.damage, this.dir);
-                    this.hitEntities.add(t);
+        // Коллизия с персонажами
+        for(let e of game.entities) {
+            if(e !== this.ow && e.hp > 0 && !this.hits.has(e)) {
+                if(this.pos.dist(e.pos) < this.sz + e.sz) {
+                    e.takeDmg(this.dmg, this.dir, this.ow);
+                    this.hits.add(e);
                     
-                    if (this.type === "explosive") {
-                        game.addParticleExplosion(this.pos, "#ff5500", 40);
-                        game.shake = 10;
-                        this.markedForDeletion = true;
-                    } else if (this.type !== "pierce" && this.type !== "beam") {
-                        this.markedForDeletion = true;
+                    if(this.type === "explosive") { 
+                        game.shake = 10; 
+                        for(let i=0; i<20; i++) game.addParticle(this.pos, "#fa0", 5); 
+                        this.del = true; 
+                    } else if(this.type !== "pierce" && this.type !== "beam_static" && this.type !== "melee") {
+                        this.del = true;
                     }
-                    game.addParticleExplosion(this.pos, this.color, 10);
                 }
             }
         }
     }
 
     draw(ctx) {
-        ctx.save();
+        ctx.save(); 
         ctx.translate(this.pos.x, this.pos.y);
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = this.color;
-        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 15; 
+        ctx.shadowColor = this.c; 
+        ctx.fillStyle = this.c;
         
-        ctx.beginPath();
-        if (this.type === "slash") {
-            ctx.rotate(Math.atan2(this.dir.y, this.dir.x));
-            ctx.arc(0, 0, this.size, -Math.PI/4, Math.PI/4);
-            ctx.strokeStyle = this.color;
-            ctx.lineWidth = 5;
-            ctx.stroke();
-        } else if (this.type === "beam") {
-            ctx.fillRect(-this.size, -this.size, this.size*2, this.size*2);
-        } else {
-            ctx.arc(0, 0, this.size, 0, Math.PI*2);
-            ctx.fill();
-            if (this.type === "pierce") {
-                ctx.fillStyle = "#000";
-                ctx.arc(0, 0, this.size * 0.5, 0, Math.PI*2);
+        if(this.type === "slash") { 
+            ctx.rotate(Math.atan2(this.dir.y, this.dir.x)); 
+            ctx.beginPath(); 
+            ctx.arc(0, 0, this.sz, -Math.PI/3, Math.PI/3); 
+            ctx.strokeStyle = this.c; 
+            ctx.lineWidth = 6; 
+            ctx.stroke(); 
+        }
+        else if(this.type === "beam_static" || this.type === "beam") {
+            ctx.fillRect(-this.sz, -this.sz, this.sz*2, this.sz*2);
+        }
+        else { 
+            ctx.beginPath(); 
+            ctx.arc(0, 0, this.sz, 0, Math.PI*2); 
+            ctx.fill(); 
+            if(this.type === "pierce"){ 
+                ctx.fillStyle = "#000"; 
+                ctx.arc(0, 0, this.sz * 0.6, 0, Math.PI*2); 
                 ctx.fill();
-            }
+            } 
         }
         ctx.restore();
     }
 }
 
-class Particle {
-    constructor(x, y, color, size) {
-        this.pos = new Vec2(x, y);
-        this.vel = new Vec2(rand(-5, 5), rand(-5, 5));
-        this.color = color;
-        this.size = size;
-        this.life = 1.0;
-        this.decay = rand(0.02, 0.05);
-    }
-    update() {
-        this.pos = this.pos.add(this.vel);
-        this.vel = this.vel.mult(0.9);
-        this.life -= this.decay;
-    }
-    draw(ctx) {
-        ctx.globalAlpha = Math.max(0, this.life);
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(this.pos.x, this.pos.y, this.size, 0, Math.PI*2);
-        ctx.fill();
-        ctx.globalAlpha = 1.0;
-    }
-}
-
-class FloatingText {
-    constructor(text, pos) {
-        this.text = text;
-        this.pos = new Vec2(pos.x + rand(-20,20), pos.y - 30);
-        this.life = 1.0;
-    }
-    update() {
-        this.pos.y -= 1;
-        this.life -= 0.02;
-    }
-    draw(ctx) {
-        ctx.globalAlpha = Math.max(0, this.life);
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 20px Arial";
-        ctx.fillText(this.text, this.pos.x, this.pos.y);
-        ctx.globalAlpha = 1.0;
-    }
-}
-
-// ================= MAIN GAME ENGINE =================
-
+// ================= 5. ГЛАВНЫЙ ДВИЖОК =================
 const game = {
-    state: 'menu', // menu, play, dead
-    player: null,
-    enemies: [],
-    projectiles: [],
-    particles: [],
-    texts:[],
-    camera: new Camera(),
-    lastTime: 0,
+    state: 'menu', 
+    entities: [], projs: [], parts: [], texts:[],
+    player: null, 
+    cam: new Vec2(0,0), 
+    lastT: 0, 
     shake: 0,
-    bossesKilled: 0,
+    timeStop: 0, timeStopper: null,
 
     init() {
         Input.init();
-        this.buildMenu();
+        
+        // Генерация Меню
+        let sel = document.getElementById('char-selector');
+        for(let k in DB) {
+            if(k === "Citizen") continue;
+            let c = document.createElement('div'); 
+            c.className = 'char-card';
+            c.innerHTML = `<div class="color-preview" style="background:${DB[k].c}"></div><h3>${k}</h3>`;
+            c.onclick = () => this.start(k);
+            sel.appendChild(c);
+        }
         requestAnimationFrame(t => this.loop(t));
     },
 
-    buildMenu() {
-        const sel = document.getElementById('char-selector');
-        sel.innerHTML = '';
-        for (let name in CHARACTERS) {
-            if (name === "Mob") continue;
-            let c = CHARACTERS[name];
-            let card = document.createElement('div');
-            card.className = 'char-card';
-            card.innerHTML = `
-                <div class="color-preview" style="background:${c.color}"></div>
-                <h3>${name}</h3>
-                <small>HP: ${c.hp}</small>
-            `;
-            card.onclick = () => this.startGame(name);
-            sel.appendChild(card);
-        }
-    },
-
-    startGame(charName) {
+    start(charName) {
         document.getElementById('menu-screen').classList.remove('active');
         document.getElementById('ui-layer').style.display = 'block';
         
-        let profile = CHARACTERS[charName];
-        this.player = new Entity(1500, 1500, profile, true);
+        MapGen.generate();
+        
+        let cx = MapGen.w / 2;
+        let cy = MapGen.h / 2;
+        
+        this.player = new Entity(charName, cx, cy, DB[charName], true);
+        this.cam = new Vec2(cx, cy);
+        this.entities.push(this.player);
+        
         document.getElementById('player-name').innerText = charName;
-        document.getElementById('player-name').style.color = profile.color;
+        document.getElementById('player-name').style.color = DB[charName].c;
 
-        // Построение панели скиллов
-        const abCont = document.getElementById('abilities-container');
-        abCont.innerHTML = '';
-        profile.abilities.forEach((ab, i) => {
-            let btn = document.createElement('div');
-            btn.className = 'ability-btn';
-            btn.style.borderColor = ab.color;
-            // Иконка (текст)
-            btn.innerHTML = `<span>${i==0?'ATK':(i==1?'S1':'S2')}</span><div class="cooldown-overlay" id="cd-${i}"></div>`;
+        // Генерация кнопок способностей для мобилок
+        let abC = document.getElementById('abilities-container'); 
+        abC.innerHTML = '';
+        DB[charName].skills.forEach((sk, i) => {
+            let b = document.createElement('div'); 
+            b.className = 'ability-btn'; 
+            b.style.borderColor = sk.color || "#fff";
+            b.innerHTML = `<span>${i==0?'ATK':'SKL'}</span><div class="cooldown-overlay" id="cd-${i}"></div>`;
             
-            // Бинд кнопок
-            const trigger = (e) => { e.preventDefault(); this.tryUseAbility(i); };
-            btn.addEventListener('touchstart', trigger);
-            btn.addEventListener('mousedown', trigger);
+            b.addEventListener('touchstart', (e) => { 
+                e.preventDefault(); 
+                this.tryAbility(i); 
+            }, {passive: false});
             
-            abCont.appendChild(btn);
+            abC.appendChild(b);
         });
 
-        this.enemies = [];
-        this.projectiles =[];
-        this.particles = [];
-        this.texts =[];
-        this.bossesKilled = 0;
+        // Спавн NPC по всему городу
+        for(let i=0; i<45; i++) {
+            let names = Object.keys(DB);
+            let n = names[randInt(0, names.length-1)];
+            this.entities.push(new Entity(n, rand(200, MapGen.w-200), rand(200, MapGen.h-200), DB[n]));
+        }
         
-        this.spawnWorld();
         this.state = 'play';
     },
 
-    spawnWorld() {
-        // Спавн мобов
-        for(let i=0; i<30; i++) {
-            this.enemies.push(new Entity(rand(100, 2900), rand(100, 2900), CHARACTERS["Mob"], false));
+    tryAbility(idx) {
+        if(this.state !== 'play' || this.player.hp <= 0) return;
+        let sk = this.player.prof.skills[idx];
+        if(!sk || this.player.cds[idx] > 0) return;
+        
+        let isMobile = window.innerWidth <= 800;
+        let aim = Input.getAim(this.player.pos, isMobile);
+        
+        sk.exec(this.player, aim);
+        this.player.cds[idx] = sk.cd;
+    },
+
+    shoot(ow, dir, spd, sz, dmg, c, t, fixedPos=null) { 
+        this.projs.push(new Projectile(ow, fixedPos || ow.pos, dir, spd, sz, dmg, c, t)); 
+    },
+    
+    addParticle(pos, c, n) { 
+        for(let i=0; i<n; i++) this.parts.push({p: new Vec2(pos.x, pos.y), v: new Vec2(rand(-5,5),rand(-5,5)), c: c, sz: rand(2,6), l: 1}); 
+    },
+    
+    triggerDeath() { 
+        this.state = 'dead'; 
+        document.getElementById('ui-layer').style.display = 'none'; 
+        document.getElementById('death-screen').classList.add('active'); 
+    },
+
+    loop(t) {
+        const dt = Math.min((t - this.lastT) / 1000, 0.1); 
+        this.lastT = t;
+        
+        if(this.state === 'play') { 
+            this.update(dt); 
+            this.draw(); 
         }
-        // Спавн боссов (остальные персонажи)
-        for (let name in CHARACTERS) {
-            if (name === "Mob" || name === document.getElementById('player-name').innerText) continue;
-            this.enemies.push(new Entity(rand(500, 2500), rand(500, 2500), CHARACTERS[name], false));
-        }
-    },
-
-    tryUseAbility(index) {
-        if(this.state !== 'play') return;
-        let ab = this.player.profile.abilities[index];
-        if(!ab || this.player.cooldowns[index] > 0) return;
-
-        let aimDir = Input.getAimDir(this.player.pos);
-        ab.execute(this.player, aimDir);
-        this.player.cooldowns[index] = ab.cd; // Установка КД в секундах
-    },
-
-    addProjectile(owner, pos, dir, speed, size, dmg, color, type) {
-        let p = new Projectile(owner, pos, dir, speed, size, dmg, color, type);
-        this.projectiles.push(p);
-        return p;
-    },
-
-    addParticleExplosion(pos, color, count) {
-        for(let i=0; i<count; i++) {
-            this.particles.push(new Particle(pos.x, pos.y, color, rand(3, 8)));
-        }
-    },
-
-    addFloatingText(text, pos) {
-        this.texts.push(new FloatingText(text, pos));
-    },
-
-    showPopup(text, color) {
-        const msg = document.getElementById('center-msg');
-        msg.innerText = text;
-        msg.style.color = color;
-        msg.style.textShadow = `0 0 20px ${color}`;
-        msg.style.opacity = 1;
-        msg.style.transform = "translate(-50%, -50%) scale(1.5)";
-        setTimeout(() => { msg.style.opacity = 0; msg.style.transform = "translate(-50%, -50%) scale(1)"; }, 1500);
-    },
-
-    updateAI(enemy, dt) {
-        let dist = enemy.pos.dist(this.player.pos);
-        if (dist < 800) { // Агро радиус
-            let dir = this.player.pos.sub(enemy.pos).normalize();
-            
-            // Движение к игроку
-            if (dist > 200) {
-                enemy.vel = enemy.vel.add(dir.mult(enemy.speed * 0.1));
-            } else if (dist < 100) {
-                enemy.vel = enemy.vel.add(dir.mult(-enemy.speed * 0.1)); // Отступление
-            }
-
-            // Использование способностей ИИ
-            enemy.profile.abilities.forEach((ab, i) => {
-                if (enemy.cooldowns[i] <= 0 && Math.random() < 0.05) { // Шанс каста
-                    // Упреждение цели
-                    let aim = dir;
-                    if (Math.random() < 0.5) aim = this.player.pos.add(this.player.vel.mult(10)).sub(enemy.pos).normalize();
-                    ab.execute(enemy, aim);
-                    enemy.cooldowns[i] = ab.cd + rand(1, 3); // ИИ кастует реже
-                }
-            });
-        }
-    },
-
-    loop(timestamp) {
-        const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1);
-        this.lastTime = timestamp;
-
-        if (this.state === 'play') {
-            this.update(dt);
-            this.draw();
-        }
-
-        requestAnimationFrame(t => this.loop(t));
+        requestAnimationFrame(x => this.loop(x));
     },
 
     update(dt) {
-        // Управление Игроком
-        let moveDir = Input.getMovementDir();
-        if (moveDir.mag() > 0) {
-            this.player.vel = this.player.vel.add(moveDir.mult(this.player.speed * 0.1)); // Ускорение
-        }
-        this.player.update(dt);
+        // Камера плавно следует за игроком
+        this.cam.x += (this.player.pos.x - this.cam.x) * 0.1;
+        this.cam.y += (this.player.pos.y - this.cam.y) * 0.1;
 
-        // Обновление Камеры
-        this.camera.update(this.player.pos);
-
-        // Спам автоатаки если зажата мышь на ПК
-        if(Input.mouseDown && !Input.isMobile) {
-            this.tryUseAbility(0);
+        if(this.timeStop > 0) {
+            this.timeStop--;
         }
 
-        // Обновление Врагов
-        for (let i = this.enemies.length - 1; i >= 0; i--) {
-            let e = this.enemies[i];
-            this.updateAI(e, dt);
+        // Логика игрока
+        if((this.player.hp > 0 && this.timeStop <= 0) || this.timeStopper === this.player) {
+            let md = Input.getDir();
+            if(md.mag() > 0) this.player.vel = this.player.vel.add(md.mult(this.player.spd * 0.1));
+            
+            // Взаимодействие (Диалоги с NPC)
+            if(Input.interactFlag) {
+                Input.interactFlag = false;
+                let near = this.entities.find(e => e !== this.player && e.pos.dist(this.player.pos) < 150);
+                if(near) {
+                    if(near.state === 'HOSTILE') {
+                        near.say("Сначала умри!", 2);
+                    } else {
+                        near.say(`Привет, я ${near.name}! ` + (rand() > 0.5 ? "Хороший город." : "Сразимся?"), 4);
+                        // 20% шанс, что NPC предложит спарринг
+                        if(Math.random() < 0.2) { 
+                            near.state = 'SPAR'; 
+                            near.target = this.player; 
+                            near.say("Защищайся!", 2); 
+                        }
+                    }
+                }
+            }
+        }
+
+        // Обновление сущностей
+        for(let i = this.entities.length - 1; i >= 0; i--) {
+            let e = this.entities[i]; 
             e.update(dt);
-            if (e.hp <= 0) this.enemies.splice(i, 1);
+            if(e.hp <= 0 && !e.isP) this.entities.splice(i, 1);
         }
-
-        // Спавн новых мобов для массовки
-        if (this.enemies.length < 20 && Math.random() < 0.01) {
-            this.enemies.push(new Entity(rand(100, 2900), rand(100, 2900), CHARACTERS["Mob"], false));
+        
+        for(let i = this.projs.length - 1; i >= 0; i--) { 
+            let p = this.projs[i]; p.update(); 
+            if(p.del) this.projs.splice(i, 1); 
         }
-
-        // Projectiles
-        for (let i = this.projectiles.length - 1; i >= 0; i--) {
-            let p = this.projectiles[i];
-            p.update();
-            if (p.markedForDeletion) this.projectiles.splice(i, 1);
+        
+        for(let i = this.parts.length - 1; i >= 0; i--) { 
+            let p = this.parts[i]; p.p = p.p.add(p.v); p.v = p.v.mult(0.9); p.l -= 0.03; 
+            if(p.l <= 0) this.parts.splice(i, 1); 
         }
-
-        // Particles
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-            let p = this.particles[i];
-            p.update();
-            if (p.life <= 0) this.particles.splice(i, 1);
+        
+        for(let i = this.texts.length - 1; i >= 0; i--) { 
+            let t = this.texts[i]; t.p.y -= 1; t.l -= 0.02; 
+            if(t.l <= 0) this.texts.splice(i, 1); 
         }
+        
+        if(this.shake > 0) this.shake *= 0.9; 
+        if(this.shake < 0.5) this.shake = 0;
 
-        // Texts
-        for (let i = this.texts.length - 1; i >= 0; i--) {
-            let t = this.texts[i];
-            t.update();
-            if (t.life <= 0) this.texts.splice(i, 1);
-        }
-
-        // Shake
-        if (this.shake > 0) this.shake *= 0.9;
-        if (this.shake < 0.5) this.shake = 0;
-
-        // UI Updates
-        document.getElementById('hp-fill').style.width = Math.max(0, (this.player.hp / this.player.maxHp) * 100) + '%';
-        this.player.profile.abilities.forEach((ab, i) => {
-            let cdRatio = this.player.cooldowns[i] / ab.cd;
+        // UI Обновление
+        document.getElementById('hp-fill').style.width = Math.max(0, (this.player.hp / this.player.mHp) * 100) + '%';
+        
+        this.player.prof.skills.forEach((sk, i) => {
+            let cdRatio = this.player.cds[i] / sk.cd;
             let el = document.getElementById('cd-' + i);
             if(el) el.style.height = (cdRatio * 100) + '%';
         });
-
-        // Смерть
-        if (this.player.hp <= 0) {
-            this.state = 'dead';
-            document.getElementById('ui-layer').style.display = 'none';
-            document.getElementById('death-screen').classList.add('active');
-        }
     },
 
     draw() {
         // Очистка
-        ctx.fillStyle = "#050510";
+        ctx.fillStyle = "#111"; 
         ctx.fillRect(0, 0, width, height);
-
         ctx.save();
         
-        // Применение Камеры и Тряски
         let sx = (Math.random() - 0.5) * this.shake;
         let sy = (Math.random() - 0.5) * this.shake;
-        ctx.translate(width/2 - this.camera.pos.x + sx, height/2 - this.camera.pos.y + sy);
-
-        // Рисуем сетку мира (Стиль Киберпанк/Арена)
-        ctx.strokeStyle = "rgba(0, 255, 255, 0.05)";
-        ctx.lineWidth = 2;
-        const gridSize = 100;
-        let startX = Math.floor((this.camera.pos.x - width/2) / gridSize) * gridSize;
-        let startY = Math.floor((this.camera.pos.y - height/2) / gridSize) * gridSize;
         
-        ctx.beginPath();
-        for(let x = startX; x < startX + width + gridSize; x += gridSize) {
-            if(x >= 0 && x <= 3000) { ctx.moveTo(x, 0); ctx.lineTo(x, 3000); }
-        }
-        for(let y = startY; y < startY + height + gridSize; y += gridSize) {
-            if(y >= 0 && y <= 3000) { ctx.moveTo(0, y); ctx.lineTo(3000, y); }
-        }
-        ctx.stroke();
+        // Отрисовка Карты с учетом камеры
+        MapGen.draw(ctx, this.cam.x + sx, this.cam.y + sy);
         
-        // Границы мира
-        ctx.strokeStyle = "#ff0055";
-        ctx.lineWidth = 5;
-        ctx.strokeRect(0, 0, 3000, 3000);
+        // Смещение камеры для динамических объектов
+        ctx.translate(width/2 - this.cam.x + sx, height/2 - this.cam.y + sy);
 
-        // Включаем красивое смешивание для эффектов
+        // Сортировка по оси Y для создания псевдо-3D глубины (кто ниже, тот ближе)
+        this.entities.sort((a, b) => a.pos.y - b.pos.y);
+
+        // Визуальный эффект остановки времени (Za Warudo)
+        if(this.timeStop > 0) {
+            ctx.fillStyle = "rgba(100, 100, 255, 0.2)"; 
+            ctx.fillRect(this.cam.x - width, this.cam.y - height, width*2, height*2);
+        }
+
+        // Рисуем снаряды и частицы с Additive Blending (светящиеся эффекты)
         ctx.globalCompositeOperation = 'lighter';
-
-        // Рисуем партиклы
-        for (let p of this.particles) p.draw(ctx);
-
-        // Рисуем прожектайлы
-        for (let p of this.projectiles) p.draw(ctx);
-
-        // Выключаем смешивание для четкой отрисовки тел
+        for(let p of this.parts) { 
+            ctx.globalAlpha = p.l; ctx.fillStyle = p.c; 
+            ctx.beginPath(); ctx.arc(p.p.x, p.p.y, p.sz, 0, Math.PI*2); ctx.fill(); 
+        }
+        for(let p of this.projs) p.draw(ctx);
+        
+        // Возвращаем обычное наложение
         ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
 
-        // Рисуем сущности (Сортировка по Y для псевдо-3D)
-        let renderQueue = [this.player, ...this.enemies].sort((a,b) => a.pos.y - b.pos.y);
-        for (let e of renderQueue) e.draw(ctx);
+        // Рисуем персонажей
+        for(let e of this.entities) e.draw(ctx);
 
-        // Текст урона
-        for (let t of this.texts) t.draw(ctx);
+        // Всплывающий урон
+        for(let t of this.texts) { 
+            ctx.globalAlpha = t.l; ctx.fillStyle = "#fff"; ctx.font = "bold 20px Arial"; 
+            ctx.fillText(t.t, t.p.x, t.p.y); 
+        }
+        ctx.globalAlpha = 1;
 
+        // Облачка диалогов над NPC
+        for(let e of this.entities) {
+            if(e.chatTm > 0) {
+                ctx.fillStyle = "rgba(255,255,255,0.9)";
+                ctx.font = "bold 14px Arial";
+                let w = ctx.measureText(e.chatTxt).width + 20;
+                let bx = e.pos.x - w/2;
+                let by = e.pos.y - e.sz - 45;
+                
+                // Основа облака
+                ctx.beginPath(); 
+                ctx.roundRect(bx, by, w, 25, 5); 
+                ctx.fill();
+                
+                // Хвостик облака
+                ctx.beginPath(); 
+                ctx.moveTo(e.pos.x - 5, by + 25); 
+                ctx.lineTo(e.pos.x + 5, by + 25); 
+                ctx.lineTo(e.pos.x, by + 32); 
+                ctx.fill();
+                
+                // Текст
+                ctx.fillStyle = "#000"; 
+                ctx.fillText(e.chatTxt, bx + 10, by + 17);
+            }
+        }
         ctx.restore();
     }
 };
 
-// Start
+// Запуск Игры
 game.init();
 
 </script>
