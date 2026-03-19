@@ -1,785 +1,799 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEGGD Browser — Полигон тестирования</title>
-<style>
-  :root {
-    --bg: #0a0a14;
-    --surface: #14142a;
-    --surface2: #1c1c30;
-    --accent: #6C63FF;
-    --accent2: #9C88FF;
-    --green: #4CAF50;
-    --orange: #FF9800;
-    --red: #F44336;
-    --text: #e0e0e0;
-    --muted: #666688;
-    --border: #2a2a44;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; font-size: 14px; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Multiverse Arena: Top-Down</title>
+    <style>
+        /* ================= АРХИТЕКТУРА И UI ================= */
+        :root { --ui-bg: rgba(10, 15, 30, 0.8); --text: #fff; --neon: #0ff; }
+        * { box-sizing: border-box; user-select: none; touch-action: none; font-family: 'Courier New', Courier, monospace; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+        
+        canvas { display: block; width: 100%; height: 100%; }
 
-  header {
-    background: linear-gradient(135deg, #12121f 0%, #1a1a2e 100%);
-    border-bottom: 1px solid var(--border);
-    padding: 20px 24px;
-    position: sticky; top: 0; z-index: 100;
-  }
-  header h1 { font-size: 20px; color: var(--accent); font-weight: 700; letter-spacing: 1px; }
-  header p { color: var(--muted); font-size: 12px; margin-top: 4px; }
+        /* Экраны */
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 100; color: white; }
+        .screen.active { display: flex; }
+        h1 { font-size: 3rem; text-shadow: 0 0 20px var(--neon); text-transform: uppercase; text-align: center; }
+        
+        .char-grid { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; max-width: 800px; }
+        .char-card { background: var(--ui-bg); border: 2px solid #333; padding: 20px; border-radius: 15px; cursor: pointer; transition: 0.3s; text-align: center; width: 180px; }
+        .char-card:hover { border-color: var(--neon); transform: translateY(-10px); box-shadow: 0 10px 20px rgba(0,255,255,0.2); }
+        .char-card h3 { margin: 0 0 10px 0; }
+        .color-preview { width: 50px; height: 50px; border-radius: 50%; margin: 0 auto 10px; box-shadow: 0 0 15px currentColor; }
 
-  nav {
-    display: flex; gap: 4px; padding: 12px 16px;
-    background: #0f0f1e; overflow-x: auto;
-    border-bottom: 1px solid var(--border);
-  }
-  nav a {
-    color: var(--muted); text-decoration: none; font-size: 12px; white-space: nowrap;
-    padding: 6px 14px; border-radius: 20px; transition: all 0.2s;
-  }
-  nav a:hover, nav a.active { background: var(--accent); color: #fff; }
+        /* Игровой HUD */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; display: none; }
+        
+        /* Статусы игрока */
+        .player-stats { position: absolute; top: 20px; left: 20px; background: var(--ui-bg); padding: 15px; border-radius: 10px; border-left: 4px solid var(--neon); pointer-events: auto; }
+        .bar-bg { width: 200px; height: 15px; background: #222; border-radius: 8px; margin-top: 5px; overflow: hidden; }
+        .bar-fill { height: 100%; width: 100%; transition: 0.2s; }
+        #hp-fill { background: linear-gradient(90deg, #f00, #ff5555); }
+        
+        /* Мобильный Джойстик */
+        #joystick-zone { position: absolute; bottom: 30px; left: 30px; width: 150px; height: 150px; background: rgba(255,255,255,0.1); border-radius: 50%; pointer-events: auto; display: none; border: 2px solid rgba(255,255,255,0.2); }
+        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 60px; height: 60px; background: rgba(0,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 20px rgba(0,255,255,0.5); }
 
-  main { padding: 16px; max-width: 900px; margin: 0 auto; }
+        /* Панель Способностей */
+        .ability-bar { position: absolute; bottom: 30px; right: 30px; display: flex; gap: 15px; pointer-events: auto; }
+        .ability-btn { width: 70px; height: 70px; border-radius: 50%; background: var(--ui-bg); border: 2px solid #555; color: white; font-size: 1.5rem; font-weight: bold; position: relative; overflow: hidden; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        .ability-btn.active { border-color: var(--neon); box-shadow: 0 0 20px var(--neon); }
+        .cooldown-overlay { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: rgba(0,0,0,0.7); transition: height 0.1s linear; display: flex; justify-content: center; align-items: center; font-size: 1rem; }
 
-  .section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    margin-bottom: 16px;
-    overflow: hidden;
-  }
-  .section-header {
-    padding: 14px 18px;
-    background: var(--surface2);
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 10px; cursor: pointer;
-    user-select: none;
-  }
-  .section-header h2 { font-size: 14px; font-weight: 600; flex: 1; }
-  .section-header .badge {
-    font-size: 10px; padding: 2px 8px; border-radius: 10px;
-    background: var(--accent); color: #fff; letter-spacing: 0.5px;
-  }
-  .badge.green { background: var(--green); }
-  .badge.orange { background: var(--orange); }
-  .badge.red { background: var(--red); }
-  .section-body { padding: 16px; }
-
-  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-
-  button {
-    background: var(--accent); color: #fff; border: none;
-    padding: 8px 16px; border-radius: 20px; font-size: 12px;
-    cursor: pointer; transition: all 0.2s; font-family: inherit;
-  }
-  button:hover { opacity: 0.85; transform: scale(0.98); }
-  button.secondary { background: var(--surface2); border: 1px solid var(--border); }
-  button.danger { background: var(--red); }
-  button.warning { background: var(--orange); }
-  button.success { background: var(--green); }
-
-  .output {
-    background: #0a0a14; border: 1px solid var(--border); border-radius: 10px;
-    padding: 12px; margin-top: 8px; font-family: monospace; font-size: 11px;
-    color: var(--green); min-height: 40px; white-space: pre-wrap; word-break: break-all;
-    max-height: 200px; overflow-y: auto;
-  }
-  .output.red { color: var(--red); }
-  .output.orange { color: var(--orange); }
-
-  input[type=text], textarea, select {
-    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
-    color: var(--text); padding: 8px 12px; font-size: 13px; font-family: inherit;
-    outline: none; width: 100%;
-  }
-  input[type=text]:focus, textarea:focus { border-color: var(--accent); }
-  textarea { min-height: 80px; resize: vertical; }
-
-  label { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block; }
-
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
-
-  .info-box {
-    background: rgba(108,99,255,0.1); border: 1px solid rgba(108,99,255,0.3);
-    border-radius: 10px; padding: 10px 14px; font-size: 12px; color: var(--accent2);
-    margin-bottom: 10px;
-  }
-  .warn-box {
-    background: rgba(255,152,0,0.1); border: 1px solid rgba(255,152,0,0.3);
-    border-radius: 10px; padding: 10px 14px; font-size: 12px; color: var(--orange);
-    margin-bottom: 10px;
-  }
-
-  #cookieDemo { font-size: 11px; color: var(--muted); margin-top: 6px; }
-  .hidden-el { display: none; }
-  .sus-script-tag { color: var(--red); font-family: monospace; font-size: 11px; padding: 8px; background: rgba(244,67,54,0.1); border-radius: 6px; margin-top: 6px; }
-
-  iframe#testFrame {
-    width: 100%; height: 200px; border: 1px solid var(--border); border-radius: 8px;
-    margin-top: 8px; background: #fff;
-  }
-
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-  .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
-  .dot-orange { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
-  .dot-red { background: var(--red); box-shadow: 0 0 6px var(--red); }
-
-  .form-wrap { background: var(--surface2); border-radius: 12px; padding: 16px; }
-  .form-wrap h3 { font-size: 13px; margin-bottom: 12px; color: var(--accent2); }
-  .form-group { margin-bottom: 10px; }
-
-  #counter { font-size: 32px; font-weight: 700; color: var(--accent); text-align: center; padding: 16px; }
-
-  .redirect-chain span {
-    display: inline-block; background: var(--surface2); border-radius: 4px;
-    padding: 2px 8px; font-size: 11px; margin: 2px; color: var(--accent2);
-  }
-  .redirect-chain span:after { content: " →"; color: var(--muted); }
-  .redirect-chain span:last-child:after { content: ""; }
-</style>
+        @media (max-width: 768px) {
+            #joystick-zone { display: block; }
+            .ability-btn { width: 60px; height: 60px; }
+            .bar-bg { width: 150px; }
+        }
+        
+        .msg-popup { position: absolute; top: 20%; left: 50%; transform: translate(-50%, -50%); font-size: 2rem; color: #fff; text-shadow: 0 0 10px #f00; pointer-events: none; opacity: 0; transition: 0.5s; font-weight: bold; z-index: 50; }
+    </style>
 </head>
 <body>
 
-<header>
-  <h1>MEGGD Browser — Полигон тестирования</h1>
-  <p>Тестовая площадка для проверки всех функций браузера: ресурсы, JS-инспектор, контроль, безопасность</p>
-</header>
-
-<nav>
-  <a href="#js" class="active">JS Инспектор</a>
-  <a href="#resources">Ресурсы</a>
-  <a href="#storage">Хранилище</a>
-  <a href="#cookies">Куки</a>
-  <a href="#forms">Формы</a>
-  <a href="#redirects">Редиректы</a>
-  <a href="#hidden">Скрытые</a>
-  <a href="#iframes">Iframe</a>
-  <a href="#dom">DOM</a>
-  <a href="#network">Сеть</a>
-</nav>
-
-<main>
-
-<!-- ── 1. JS Inspector ─────────────────────────────────────────────────────── -->
-<div class="section" id="js">
-  <div class="section-header">
-    <span class="status-dot dot-green"></span>
-    <h2>1. JavaScript Инспектор</h2>
-    <span class="badge">JS</span>
-  </div>
-  <div class="section-body">
-    <div class="info-box">Эти кнопки позволяют проверить, как браузер обнаруживает JS-манипуляции. Используй вкладку «JS» в Контроле сайта для выполнения команд.</div>
-    <div class="row">
-      <button onclick="testEval()">Выполнить eval()</button>
-      <button onclick="testWrite()" class="warning">document.write()</button>
-      <button onclick="testLocation()" class="secondary">Изменить location</button>
-      <button onclick="testInnerHTML()" class="warning">innerHTML injection</button>
-      <button onclick="testBase64()" class="secondary">atob/btoa (base64)</button>
-      <button onclick="testFromChar()" class="danger">fromCharCode</button>
+    <!-- Меню Выбора Персонажа -->
+    <div id="menu-screen" class="screen active">
+        <h1>Выберите Легенду</h1>
+        <p>ПК: WASD + Мышь (ЛКМ/ПКМ/Пробел) | Смартфон: Джойстик + Кнопки</p>
+        <div class="char-grid" id="char-selector">
+            <!-- Генерируется через JS -->
+        </div>
     </div>
-    <div id="jsOutput" class="output">→ Нажмите любую кнопку для теста...</div>
 
-    <div style="margin-top: 14px;">
-      <label>Произвольный JS (MEGGD может перехватить через вкладку JS):</label>
-      <textarea id="customJs" placeholder="document.title = 'Взломано!'"></textarea>
-      <div class="row" style="margin-top:6px;">
-        <button onclick="runCustom()">▶ Выполнить</button>
-        <button onclick="document.getElementById('customJs').value=''" class="secondary">Очистить</button>
-      </div>
-      <div id="customOutput" class="output"></div>
+    <!-- Экран смерти -->
+    <div id="death-screen" class="screen">
+        <h1 style="color: red;">ВЫ ПОГИБЛИ</h1>
+        <button onclick="location.reload()" style="padding: 15px 30px; font-size: 1.5rem; background: #222; color: white; border: 2px solid red; border-radius: 10px; cursor: pointer;">ПЕРЕЗАГРУЗКА</button>
     </div>
-  </div>
-</div>
 
-<!-- ── 2. Ресурсы (перехват) ───────────────────────────────────────────────── -->
-<div class="section" id="resources">
-  <div class="section-header">
-    <span class="status-dot dot-orange"></span>
-    <h2>2. Загрузка внешних ресурсов</h2>
-    <span class="badge orange">Перехват</span>
-  </div>
-  <div class="section-body">
-    <div class="warn-box">Браузер должен перехватить все эти запросы и показать их во вкладке «Ресурсы» Контроля сайта. Попробуй заблокировать один из доменов и перезагрузить страницу.</div>
-    <div class="row">
-      <button onclick="loadExternalScript()">Загрузить внешний JS</button>
-      <button onclick="loadExternalImage()" class="secondary">Загрузить img (tracker)</button>
-      <button onclick="sendBeacon()" class="warning">navigator.sendBeacon()</button>
-      <button onclick="xhrRequest()" class="secondary">XMLHttpRequest</button>
-      <button onclick="fetchRequest()">fetch() запрос</button>
-    </div>
-    <div id="resourceOutput" class="output">→ Нажмите кнопку — ресурс загрузится и появится во вкладке Ресурсы...</div>
-    <div style="margin-top: 12px;">
-      <label>Загруженные ресурсы на этой странице:</label>
-      <div id="resourceList" class="output" style="color: var(--accent2);"></div>
-    </div>
-  </div>
-</div>
+    <!-- Игровой UI -->
+    <div id="ui-layer">
+        <div class="player-stats">
+            <div style="font-weight:bold; font-size: 1.2rem;" id="player-name">Игрок</div>
+            <div>Убито Боссов: <span id="score-text">0</span></div>
+            <div class="bar-bg"><div class="bar-fill" id="hp-fill"></div></div>
+        </div>
 
-<!-- ── 3. Хранилище ────────────────────────────────────────────────────────── -->
-<div class="section" id="storage">
-  <div class="section-header">
-    <span class="status-dot dot-green"></span>
-    <h2>3. localStorage / sessionStorage</h2>
-    <span class="badge">Хранилище</span>
-  </div>
-  <div class="section-body">
-    <div class="grid">
-      <div>
-        <label>Ключ</label>
-        <input type="text" id="storageKey" value="test_key" />
-      </div>
-      <div>
-        <label>Значение</label>
-        <input type="text" id="storageValue" value="секретные данные 123" />
-      </div>
-    </div>
-    <div class="row" style="margin-top:8px;">
-      <button onclick="storageSave()">Сохранить в localStorage</button>
-      <button onclick="storageRead()" class="secondary">Прочитать</button>
-      <button onclick="storageSession()" class="warning">sessionStorage</button>
-      <button onclick="storageClear()" class="danger">Очистить всё</button>
-    </div>
-    <div id="storageOutput" class="output">→ Используй вкладку JS в браузере: Object.keys(localStorage)</div>
-    <div style="margin-top: 10px;">
-      <label>Заполнить тестовыми данными (имитация сохранённых паролей/токенов):</label>
-      <button onclick="fillFakeData()" class="warning" style="margin-top:6px;">Записать фейковые токены</button>
-    </div>
-  </div>
-</div>
+        <div id="joystick-zone">
+            <div id="joystick-knob"></div>
+        </div>
 
-<!-- ── 4. Куки ─────────────────────────────────────────────────────────────── -->
-<div class="section" id="cookies">
-  <div class="section-header">
-    <span class="status-dot dot-orange"></span>
-    <h2>4. Куки (без флагов безопасности)</h2>
-    <span class="badge orange">Небезопасно</span>
-  </div>
-  <div class="section-body">
-    <div class="warn-box">Эти куки создаются БЕЗ флагов Secure/HttpOnly/SameSite — именно это обнаруживает анализатор «О сайте».</div>
-    <div class="row">
-      <button onclick="setCookieUnsafe()">Создать небезопасную куку</button>
-      <button onclick="setCookieSafe()" class="success">Создать безопасную куку</button>
-      <button onclick="readCookies()" class="secondary">Прочитать все куки</button>
-      <button onclick="clearCookies()" class="danger">Удалить куки</button>
+        <div class="ability-bar" id="abilities-container">
+            <!-- Кнопки генерируются под персонажа -->
+        </div>
     </div>
-    <div id="cookieOutput" class="output">→ Нажмите кнопку для работы с куками</div>
-    <div id="cookieDemo"></div>
-  </div>
-</div>
 
-<!-- ── 5. Формы ────────────────────────────────────────────────────────────── -->
-<div class="section" id="forms">
-  <div class="section-header">
-    <span class="status-dot dot-red"></span>
-    <h2>5. Формы (перехват отправки данных)</h2>
-    <span class="badge red">Угроза</span>
-  </div>
-  <div class="section-body">
-    <div class="warn-box">Браузер должен обнаружить эти формы через JS инспектор → «Формы — куда отправляются данные».</div>
-    <div class="grid">
-      <div class="form-wrap">
-        <h3>Форма 1 — POST на внешний сервер</h3>
-        <form id="form1" method="POST" action="https://httpbin.org/post" onsubmit="interceptForm(event,'form1')">
-          <div class="form-group">
-            <label>Логин</label>
-            <input type="text" placeholder="ваш_логин" />
-          </div>
-          <div class="form-group">
-            <label>Пароль</label>
-            <input type="password" placeholder="••••••••" />
-          </div>
-          <button type="submit" class="danger">Отправить данные</button>
-        </form>
-      </div>
-      <div class="form-wrap">
-        <h3>Форма 2 — GET с параметрами</h3>
-        <form id="form2" method="GET" action="https://example.com/track" onsubmit="interceptForm(event,'form2')">
-          <div class="form-group">
-            <label>Email</label>
-            <input type="text" placeholder="user@email.com" />
-          </div>
-          <div class="form-group">
-            <label>Телефон</label>
-            <input type="text" placeholder="+7..." />
-          </div>
-          <button type="submit" class="warning">Отправить (GET)</button>
-        </form>
-      </div>
-    </div>
-    <div id="formOutput" class="output" style="margin-top:8px;">→ Нажмите «Отправить» — форма будет перехвачена</div>
-  </div>
-</div>
+    <div class="msg-popup" id="center-msg"></div>
 
-<!-- ── 6. Редиректы ────────────────────────────────────────────────────────── -->
-<div class="section" id="redirects">
-  <div class="section-header">
-    <span class="status-dot dot-orange"></span>
-    <h2>6. Редиректы (тест трассировщика)</h2>
-    <span class="badge orange">Редиректы</span>
-  </div>
-  <div class="section-body">
-    <div class="info-box">Используй «Контроль сайта» → вкладка «Редиректы» чтобы отследить цепочку переходов браузера.</div>
-    <div class="row">
-      <button onclick="metaRefresh()">meta refresh редирект</button>
-      <button onclick="jsRedirect()" class="warning">JS редирект (location.href)</button>
-      <button onclick="jsReplaceRedirect()" class="secondary">location.replace()</button>
-      <button onclick="historyPush()">history.pushState()</button>
-      <button onclick="simulateChain()" class="danger">Цепочка редиректов</button>
-    </div>
-    <div id="redirectOutput" class="output">→ Нажмите кнопку для симуляции редиректа</div>
-    <div style="margin-top:10px;">
-      <label>Текущая цепочка URL:</label>
-      <div class="redirect-chain" id="redirectChain">
-        <span>about:blank</span>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ── 7. Скрытые элементы ────────────────────────────────────────────────── -->
-<div class="section" id="hidden">
-  <div class="section-header">
-    <span class="status-dot dot-red"></span>
-    <h2>7. Скрытые элементы (fingerprinting)</h2>
-    <span class="badge red">Слежение</span>
-  </div>
-  <div class="section-body">
-    <div class="warn-box">JS инспектор → «Скрытые элементы» покажет количество невидимых элементов на странице.</div>
-
-    <!-- Hidden tracking elements -->
-    <div style="display:none" id="hiddenTracker1" data-user-id="uid_9283ab" data-session="sess_xyz">Скрытый трекер 1</div>
-    <div style="visibility:hidden" id="hiddenTracker2" data-fp="canvas_fingerprint_placeholder">Скрытый трекер 2</div>
-    <div hidden id="hiddenTracker3" data-ref="ref_source_tracking">Скрытый трекер 3</div>
-    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" width="1" height="1" style="position:absolute;opacity:0" id="trackingPixel" alt="">
-
-    <div class="row">
-      <button onclick="countHidden()">Подсчитать скрытые элементы</button>
-      <button onclick="revealHidden()" class="warning">Показать скрытые</button>
-      <button onclick="addHidden()" class="secondary">Добавить скрытый</button>
-      <button onclick="canvasFingerprint()" class="danger">Canvas fingerprint</button>
-    </div>
-    <div id="hiddenOutput" class="output">→ На странице уже есть 4 скрытых элемента — браузер должен их обнаружить</div>
-  </div>
-</div>
-
-<!-- ── 8. Iframe ───────────────────────────────────────────────────────────── -->
-<div class="section" id="iframes">
-  <div class="section-header">
-    <span class="status-dot dot-orange"></span>
-    <h2>8. Встроенные фреймы (iframe)</h2>
-    <span class="badge orange">Iframe</span>
-  </div>
-  <div class="section-body">
-    <div class="warn-box">Браузер обнаружит эти iframe во вкладке «Ресурсы» и в JS инспекторе → «Все iframe».</div>
-    <div class="row">
-      <button onclick="addIframe('https://example.com')">Добавить iframe (example.com)</button>
-      <button onclick="addIframe('about:blank')" class="secondary">Пустой iframe</button>
-      <button onclick="addInlineIframe()" class="warning">srcdoc iframe</button>
-      <button onclick="removeIframes()" class="danger">Удалить все iframe</button>
-    </div>
-    <div id="iframeContainer"></div>
-    <div id="iframeOutput" class="output">→ Нажмите кнопку для добавления iframe</div>
-  </div>
-</div>
-
-<!-- ── 9. DOM манипуляции ─────────────────────────────────────────────────── -->
-<div class="section" id="dom">
-  <div class="section-header">
-    <span class="status-dot dot-green"></span>
-    <h2>9. DOM манипуляции в реальном времени</h2>
-    <span class="badge">DOM</span>
-  </div>
-  <div class="section-body">
-    <div id="counter">0</div>
-    <div class="row" style="justify-content: center; margin-bottom:12px;">
-      <button onclick="changeCounter(-1)" class="secondary">−</button>
-      <button onclick="changeCounter(1)">+</button>
-      <button onclick="changeCounter(0, true)" class="danger">Сброс</button>
-    </div>
-    <div class="row">
-      <button onclick="changeTitle()">Изменить заголовок страницы</button>
-      <button onclick="changeBackground()" class="warning">Изменить фон</button>
-      <button onclick="injectElement()" class="danger">Внедрить элемент</button>
-      <button onclick="removeElement()" class="secondary">Удалить элемент</button>
-      <button onclick="cloneDOM()" class="secondary">Клонировать секцию</button>
-    </div>
-    <div id="domOutput" class="output">→ Нажмите кнопку для манипуляции с DOM</div>
-    <div id="injectedArea" style="margin-top:8px;"></div>
-  </div>
-</div>
-
-<!-- ── 10. Сеть и запросы ─────────────────────────────────────────────────── -->
-<div class="section" id="network">
-  <div class="section-header">
-    <span class="status-dot dot-orange"></span>
-    <h2>10. Сетевые запросы и слежение</h2>
-    <span class="badge orange">Сеть</span>
-  </div>
-  <div class="section-body">
-    <div class="info-box">Все эти запросы браузер должен перехватить и показать во вкладке «Ресурсы» → «Сетевые запросы XHR/Fetch».</div>
-    <div class="row">
-      <button onclick="pingTracker()">Имитировать трекер</button>
-      <button onclick="webSocketTest()" class="secondary">WebSocket тест</button>
-      <button onclick="serviceWorkerTest()" class="warning">Service Worker</button>
-      <button onclick="sendAllData()" class="danger">Собрать данные устройства</button>
-    </div>
-    <div id="networkOutput" class="output">→ Нажмите кнопку для теста сетевых запросов</div>
-
-    <div style="margin-top: 14px;">
-      <label>Данные устройства (собирает любой сайт):</label>
-      <div id="deviceInfo" class="output orange"></div>
-    </div>
-  </div>
-</div>
-
-</main>
+    <!-- Основной Canvas -->
+    <canvas id="gameCanvas"></canvas>
 
 <script>
-// ── Helpers ──────────────────────────────────────────────────────────────────
-function out(id, msg, color) {
-  var el = document.getElementById(id);
-  el.textContent = msg;
-  el.className = 'output' + (color ? ' ' + color : '');
-}
-function log(id, msg) {
-  var el = document.getElementById(id);
-  el.textContent += '\n' + msg;
+/**
+ * MULTIVERSE ARENA ENGINE
+ * Массивный движок для Top-Down Action RPG.
+ */
+
+// ================= UTILS & MATH =================
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let width = canvas.width = window.innerWidth;
+let height = canvas.height = window.innerHeight;
+
+window.addEventListener('resize', () => {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+});
+
+class Vec2 {
+    constructor(x, y) { this.x = x; this.y = y; }
+    add(v) { return new Vec2(this.x + v.x, this.y + v.y); }
+    sub(v) { return new Vec2(this.x - v.x, this.y - v.y); }
+    mult(n) { return new Vec2(this.x * n, this.y * n); }
+    mag() { return Math.sqrt(this.x * this.x + this.y * this.y); }
+    normalize() { let m = this.mag(); return m === 0 ? new Vec2(0,0) : new Vec2(this.x/m, this.y/m); }
+    dist(v) { return this.sub(v).mag(); }
 }
 
-// ── 1. JS Tests ──────────────────────────────────────────────────────────────
-function testEval() {
-  var code = 'Math.pow(2,10)';
-  var result = eval(code);
-  out('jsOutput', '✓ eval("' + code + '") = ' + result + '\n→ Браузер должен обнаружить вызов eval() в исходнике');
-}
-function testWrite() {
-  out('jsOutput', '⚠ document.write() вызван (симуляция — реальный вызов перезапишет страницу)\n→ Проверь вкладку Исходник в браузере', 'orange');
-}
-function testLocation() {
-  out('jsOutput', '→ window.location.href = "' + window.location.href + '"\n→ Изменение: симулировано (реальный редирект не выполнен)');
-}
-function testInnerHTML() {
-  document.getElementById('jsOutput').innerHTML = '<span style="color:#FF9800">⚠ innerHTML изменён через JS — это вектор XSS!</span>\n→ Браузер должен подсветить innerHTML= в исходнике';
-}
-function testBase64() {
-  var encoded = btoa('secret_token_abc123');
-  var decoded = atob(encoded);
-  out('jsOutput', '✓ btoa("secret_token_abc123") = ' + encoded + '\n✓ atob(результат) = ' + decoded + '\n→ base64 обнаруживается в исходнике как подозрительный паттерн');
-}
-function testFromChar() {
-  var s = String.fromCharCode(77,69,71,71,68);
-  out('jsOutput', '✓ fromCharCode(77,69,71,71,68) = "' + s + '"\n→ Используется для обфускации — браузер подсвечивает как угрозу', 'red');
-}
-function runCustom() {
-  var code = document.getElementById('customJs').value;
-  if (!code) return;
-  try {
-    var result = eval(code);
-    out('customOutput', '✓ Результат: ' + JSON.stringify(result));
-  } catch(e) {
-    out('customOutput', '✗ Ошибка: ' + e.message, 'red');
-  }
+function rand(min, max) { return Math.random() * (max - min) + min; }
+
+// ================= INPUT SYSTEM =================
+const Input = {
+    keys: {},
+    mouse: new Vec2(width/2, height/2),
+    mouseDown: false,
+    joyVector: new Vec2(0, 0),
+    isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+    
+    init() {
+        window.addEventListener('keydown', e => this.keys[e.code] = true);
+        window.addEventListener('keyup', e => this.keys[e.code] = false);
+        window.addEventListener('mousemove', e => { this.mouse.x = e.clientX; this.mouse.y = e.clientY; });
+        window.addEventListener('mousedown', e => { this.mouseDown = true; if(!this.isMobile) game.tryUseAbility(0); });
+        window.addEventListener('mouseup', e => this.mouseDown = false);
+        window.addEventListener('contextmenu', e => { e.preventDefault(); if(!this.isMobile) game.tryUseAbility(1); });
+
+        // Джойстик
+        const jZone = document.getElementById('joystick-zone');
+        const jKnob = document.getElementById('joystick-knob');
+        let jCenter = new Vec2(0,0);
+
+        const handleTouch = (e) => {
+            e.preventDefault();
+            let touch = e.targetTouches[0];
+            if (!touch) return;
+            let rect = jZone.getBoundingClientRect();
+            jCenter = new Vec2(rect.left + rect.width/2, rect.top + rect.height/2);
+            let tPos = new Vec2(touch.clientX, touch.clientY);
+            let dir = tPos.sub(jCenter);
+            if (dir.mag() > 50) dir = dir.normalize().mult(50);
+            
+            jKnob.style.transform = `translate(calc(-50% + ${dir.x}px), calc(-50% + ${dir.y}px))`;
+            this.joyVector = dir.normalize();
+        };
+
+        jZone.addEventListener('touchstart', handleTouch);
+        jZone.addEventListener('touchmove', handleTouch);
+        jZone.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            jKnob.style.transform = `translate(-50%, -50%)`;
+            this.joyVector = new Vec2(0,0);
+        });
+    },
+
+    getMovementDir() {
+        if (this.joyVector.mag() > 0.1) return this.joyVector;
+        let dir = new Vec2(0, 0);
+        if (this.keys['KeyW']) dir.y -= 1;
+        if (this.keys['KeyS']) dir.y += 1;
+        if (this.keys['KeyA']) dir.x -= 1;
+        if (this.keys['KeyD']) dir.x += 1;
+        return dir.normalize();
+    },
+
+    getAimDir(playerPos) {
+        if (this.isMobile) {
+            // На мобилках целимся туда же, куда идем, либо в ближайшего врага
+            let nearest = null;
+            let minDist = 500;
+            for(let e of game.enemies) {
+                let d = e.pos.dist(playerPos);
+                if (d < minDist) { minDist = d; nearest = e; }
+            }
+            if (nearest) return nearest.pos.sub(playerPos).normalize();
+            return this.getMovementDir().mag() > 0 ? this.getMovementDir() : new Vec2(1, 0);
+        } else {
+            // На ПК целимся мышкой
+            let screenPlayerPos = new Vec2(width/2, height/2); // Камера всегда по центру
+            return this.mouse.sub(screenPlayerPos).normalize();
+        }
+    }
+};
+
+// ================= GAME CONTENT & ABILITIES =================
+
+// База данных эффектов и способностей
+const Abilities = {
+    // === GOJO ===
+    InfinityPunch: {
+        name: "Удар Бесконечности", cd: 0.5, color: "#fff",
+        execute: (caster, aimDir) => {
+            game.addProjectile(caster, caster.pos.add(aimDir.mult(30)), aimDir, 15, 15, 20, "#fff", "melee");
+        }
+    },
+    CursedRed: {
+        name: "Красный", cd: 4, color: "#f00",
+        execute: (caster, aimDir) => {
+            game.addParticleExplosion(caster.pos, "#f00", 30);
+            game.addProjectile(caster, caster.pos.add(aimDir.mult(40)), aimDir, 8, 30, 50, "#f00", "blast");
+        }
+    },
+    HollowPurple: {
+        name: "Фиолетовый", cd: 10, color: "#8a2be2",
+        execute: (caster, aimDir) => {
+            game.showPopup("HOLLOW PURPLE!", "#8a2be2");
+            game.shake = 20;
+            // Медленный, огромный, всепробивающий
+            let p = game.addProjectile(caster, caster.pos, aimDir, 4, 80, 150, "#8a2be2", "pierce");
+            p.lifespan = 200; // летит далеко
+        }
+    },
+
+    // === SUKUNA ===
+    Dismantle: {
+        name: "Разрез", cd: 0.3, color: "#ff2222",
+        execute: (caster, aimDir) => {
+            let spread = (Math.random() - 0.5) * 0.5;
+            let dir = new Vec2(aimDir.x * Math.cos(spread) - aimDir.y * Math.sin(spread),
+                               aimDir.x * Math.sin(spread) + aimDir.y * Math.cos(spread));
+            game.addProjectile(caster, caster.pos, dir, 25, 10, 15, "#ff0000", "slash");
+        }
+    },
+    FireArrow: {
+        name: "Огненная Стрела", cd: 8, color: "#ff8800",
+        execute: (caster, aimDir) => {
+            game.showPopup("FUUGA...", "#ff8800");
+            let p = game.addProjectile(caster, caster.pos, aimDir, 18, 20, 100, "#ff8800", "explosive");
+            p.lifespan = 100;
+        }
+    },
+
+    // === SANS ===
+    BoneThrow: {
+        name: "Кость", cd: 0.6, color: "#fff",
+        execute: (caster, aimDir) => {
+            game.addProjectile(caster, caster.pos, aimDir, 12, 12, 25, "#fff", "bone");
+        }
+    },
+    GasterBlaster: {
+        name: "Бластер", cd: 6, color: "#00ffff",
+        execute: (caster, aimDir) => {
+            game.showPopup("Gaster Blaster!", "#00ffff");
+            // Луч: создаем серию невидимых прожектайлов или один длинный хитбокс
+            for(let i=1; i<=15; i++) {
+                setTimeout(() => {
+                    game.addProjectile(caster, caster.pos.add(aimDir.mult(i*40)), aimDir, 0.1, 40, 30, "#00ffff", "beam");
+                    game.addParticleExplosion(caster.pos.add(aimDir.mult(i*40)), "#00ffff", 5);
+                }, i * 20);
+            }
+            game.shake = 10;
+        }
+    },
+
+    // === CUPHEAD ===
+    Peashooter: {
+        name: "Выстрел", cd: 0.15, color: "#00ccff",
+        execute: (caster, aimDir) => {
+            game.addProjectile(caster, caster.pos, aimDir, 15, 8, 10, "#00ccff", "bullet");
+        }
+    },
+    MegaBlast: {
+        name: "Мега Бласт", cd: 5, color: "#ff0000",
+        execute: (caster, aimDir) => {
+            game.addProjectile(caster, caster.pos, aimDir, 20, 25, 60, "#ff0000", "bullet");
+            game.addProjectile(caster, caster.pos, aimDir.add(new Vec2(0.2,0.2)).normalize(), 18, 15, 40, "#ff0000", "bullet");
+            game.addProjectile(caster, caster.pos, aimDir.add(new Vec2(-0.2,-0.2)).normalize(), 18, 15, 40, "#ff0000", "bullet");
+        }
+    }
+};
+
+const CHARACTERS = {
+    "Gojo": { color: "#8a2be2", hp: 1000, speed: 6, size: 25, abilities:[Abilities.InfinityPunch, Abilities.CursedRed, Abilities.HollowPurple] },
+    "Sukuna": { color: "#ff2222", hp: 1200, speed: 7, size: 25, abilities:[Abilities.Dismantle, Abilities.FireArrow] },
+    "Sans": { color: "#ffffff", hp: 300, speed: 8, size: 20, abilities:[Abilities.BoneThrow, Abilities.GasterBlaster] },
+    "Cuphead": { color: "#ff0000", hp: 600, speed: 6, size: 22, abilities:[Abilities.Peashooter, Abilities.MegaBlast] },
+    "Frisk": { color: "#ff00ff", hp: 800, speed: 5, size: 20, abilities: [Abilities.BoneThrow] }, // Упрощенный
+    "Mob": { color: "#555555", hp: 100, speed: 3, size: 20, abilities: [Abilities.InfinityPunch] } // Базовый враг
+};
+
+// ================= CLASSES =================
+
+class Camera {
+    constructor() { this.pos = new Vec2(0,0); }
+    update(targetPos) {
+        // Плавное следование
+        this.pos.x += (targetPos.x - width/2 - this.pos.x) * 0.1;
+        this.pos.y += (targetPos.y - height/2 - this.pos.y) * 0.1;
+    }
 }
 
-// ── 2. Resources ─────────────────────────────────────────────────────────────
-function loadExternalScript() {
-  var s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js';
-  s.onload = function() { out('resourceOutput', '✓ Внешний скрипт загружен: jQuery\n→ Должен появиться во вкладке Ресурсы → Скрипты JS'); };
-  s.onerror = function() { out('resourceOutput', '→ Скрипт заблокирован или недоступен\n→ Если ты заблокировал cdn.jsdelivr.net — это работает!', 'orange'); };
-  document.head.appendChild(s);
-}
-function loadExternalImage() {
-  var img = new Image();
-  img.src = 'https://www.google-analytics.com/collect?v=1&tid=UA-test&cid=555&t=pageview&dp=' + encodeURIComponent(window.location.href);
-  out('resourceOutput', '⚠ Отправлен пиксель слежения на google-analytics.com\n→ Браузер помечает как Трекер/пиксель слежения', 'orange');
-}
-function sendBeacon() {
-  if (navigator.sendBeacon) {
-    navigator.sendBeacon('https://httpbin.org/post', JSON.stringify({event:'pageview', url: window.location.href}));
-    out('resourceOutput', '⚠ navigator.sendBeacon() отправлен на httpbin.org\n→ Используется трекерами для незаметной отправки данных');
-  } else {
-    out('resourceOutput', '→ sendBeacon не поддерживается');
-  }
-}
-function xhrRequest() {
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', 'https://httpbin.org/get');
-  xhr.onload = function() { out('resourceOutput', '✓ XHR завершён: ' + xhr.status + '\n→ Должен появиться во вкладке Ресурсы → XHR/Fetch'); };
-  xhr.onerror = function() { out('resourceOutput', '→ XHR заблокирован или ошибка сети', 'orange'); };
-  xhr.send();
-  out('resourceOutput', '⏳ XHR запрос отправлен на httpbin.org...');
-}
-function fetchRequest() {
-  out('resourceOutput', '⏳ fetch() запрос отправлен...');
-  fetch('https://httpbin.org/get')
-    .then(function(r) { return r.json(); })
-    .then(function(d) { out('resourceOutput', '✓ fetch() завершён\nIP: ' + (d.origin || 'скрыт') + '\n→ Виден во вкладке Ресурсы'); })
-    .catch(function(e) { out('resourceOutput', '→ fetch заблокирован: ' + e.message, 'orange'); });
+class Entity {
+    constructor(x, y, profile, isPlayer = false) {
+        this.pos = new Vec2(x, y);
+        this.vel = new Vec2(0, 0);
+        this.profile = profile;
+        this.hp = profile.hp;
+        this.maxHp = profile.hp;
+        this.speed = profile.speed;
+        this.size = profile.size;
+        this.color = profile.color;
+        this.isPlayer = isPlayer;
+        this.cooldowns = [0, 0, 0]; // Для 3-х скиллов
+        
+        // Для анимации
+        this.damageFlash = 0;
+    }
+
+    update(dt) {
+        this.pos = this.pos.add(this.vel);
+        this.vel = this.vel.mult(0.8); // Трение
+
+        // Границы мира (3000 x 3000)
+        this.pos.x = Math.max(0, Math.min(3000, this.pos.x));
+        this.pos.y = Math.max(0, Math.min(3000, this.pos.y));
+
+        for(let i=0; i<this.cooldowns.length; i++) {
+            if(this.cooldowns[i] > 0) this.cooldowns[i] -= dt;
+        }
+        if(this.damageFlash > 0) this.damageFlash -= dt;
+    }
+
+    draw(ctx) {
+        ctx.save();
+        ctx.translate(this.pos.x, this.pos.y);
+
+        // Тень
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.beginPath();
+        ctx.ellipse(0, this.size, this.size, this.size/2, 0, 0, Math.PI*2);
+        ctx.fill();
+
+        // Тело
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = this.color;
+        ctx.fillStyle = this.damageFlash > 0 ? "#fff" : this.color;
+        
+        // Стилизация отрисовки в зависимости от персонажа
+        ctx.beginPath();
+        if (this.color === "#ffffff") { // Sans
+            ctx.arc(0, 0, this.size, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = "#000";
+            ctx.fillRect(-8, -5, 6, 8); // глаз
+            ctx.fillRect(2, -5, 6, 8); // глаз
+        } else {
+            // Стандартный квадрат/ромб
+            ctx.roundRect(-this.size, -this.size, this.size*2, this.size*2, 8);
+            ctx.fill();
+        }
+
+        // Полоска ХП (для врагов)
+        if (!this.isPlayer) {
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = "#222";
+            ctx.fillRect(-this.size, -this.size - 15, this.size*2, 6);
+            ctx.fillStyle = "#f00";
+            let hpW = (this.hp / this.maxHp) * (this.size*2);
+            ctx.fillRect(-this.size, -this.size - 15, hpW, 6);
+        }
+
+        ctx.restore();
+    }
+
+    takeDamage(amt, sourceDir) {
+        this.hp -= amt;
+        this.damageFlash = 0.1;
+        this.vel = this.vel.add(sourceDir.mult(10)); // Отбрасывание
+        game.addFloatingText(Math.floor(amt), this.pos);
+        if (this.hp <= 0 && !this.isPlayer) {
+            game.addParticleExplosion(this.pos, this.color, 50);
+            if(this.profile !== CHARACTERS["Mob"]) game.bossesKilled++;
+            document.getElementById('score-text').innerText = game.bossesKilled;
+        }
+    }
 }
 
-// Показать ресурсы страницы
-(function() {
-  var scripts = Array.from(document.querySelectorAll('script[src]')).map(function(s) { return '📜 ' + s.src; });
-  var links = Array.from(document.querySelectorAll('link[href]')).map(function(l) { return '🔗 ' + l.href; });
-  document.getElementById('resourceList').textContent = scripts.concat(links).join('\n') || 'Нет внешних ресурсов';
-})();
+class Projectile {
+    constructor(owner, pos, dir, speed, size, damage, color, type) {
+        this.owner = owner;
+        this.pos = pos;
+        this.dir = dir;
+        this.vel = dir.mult(speed);
+        this.size = size;
+        this.damage = damage;
+        this.color = color;
+        this.type = type;
+        this.lifespan = 50; // в тиках
+        this.markedForDeletion = false;
+        this.hitEntities = new Set(); // для pierce
+    }
 
-// ── 3. Storage ────────────────────────────────────────────────────────────────
-function storageSave() {
-  var k = document.getElementById('storageKey').value;
-  var v = document.getElementById('storageValue').value;
-  localStorage.setItem(k, v);
-  out('storageOutput', '✓ localStorage["' + k + '"] = "' + v + '"\n→ Проверь через JS инспектор: Object.keys(localStorage)');
-}
-function storageRead() {
-  var k = document.getElementById('storageKey').value;
-  var v = localStorage.getItem(k);
-  out('storageOutput', v ? '✓ localStorage["' + k + '"] = "' + v + '"' : '→ Ключ "' + k + '" не найден');
-}
-function storageSession() {
-  var k = document.getElementById('storageKey').value;
-  var v = document.getElementById('storageValue').value;
-  sessionStorage.setItem(k, v);
-  out('storageOutput', '✓ sessionStorage["' + k + '"] = "' + v + '"\n→ Исчезнет после закрытия вкладки');
-}
-function storageClear() {
-  localStorage.clear(); sessionStorage.clear();
-  out('storageOutput', '✓ localStorage и sessionStorage очищены');
-}
-function fillFakeData() {
-  localStorage.setItem('auth_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.fake_token');
-  localStorage.setItem('user_id', 'usr_98372');
-  localStorage.setItem('refresh_token', 'rft_abc123xyz789');
-  localStorage.setItem('last_password_hash', 'md5_a1b2c3d4e5f6');
-  localStorage.setItem('session', JSON.stringify({name:'Тестовый пользователь', email:'test@example.com', role:'admin'}));
-  out('storageOutput', '✓ Записаны фейковые токены и данные сессии\n→ JS инспектор → localStorage покажет все ключи:\n  auth_token, user_id, refresh_token, last_password_hash, session');
-}
+    update() {
+        this.pos = this.pos.add(this.vel);
+        this.lifespan--;
+        if(this.lifespan <= 0) this.markedForDeletion = true;
 
-// ── 4. Cookies ────────────────────────────────────────────────────────────────
-function setCookieUnsafe() {
-  document.cookie = 'session_id=abc123unsafe; path=/';
-  document.cookie = 'user_prefs=dark_mode=true; path=/';
-  out('cookieOutput', '⚠ Созданы НЕБЕЗОПАСНЫЕ куки (без Secure, HttpOnly, SameSite)\n→ Анализатор «О сайте» пометит как уязвимость\n→ JS может читать: document.cookie', 'orange');
-  document.getElementById('cookieDemo').textContent = 'document.cookie = "' + document.cookie + '"';
-}
-function setCookieSafe() {
-  document.cookie = 'safe_token=xyz789; path=/; SameSite=Strict';
-  out('cookieOutput', '✓ Кука создана с флагом SameSite=Strict\n(Secure и HttpOnly устанавливает только сервер через Set-Cookie)');
-}
-function readCookies() {
-  out('cookieOutput', 'Все куки доступные JS:\n' + (document.cookie || '(пусто)'));
-  document.getElementById('cookieDemo').textContent = 'Всего: ' + (document.cookie.split(';').length) + ' кук';
-}
-function clearCookies() {
-  document.cookie.split(';').forEach(function(c) {
-    document.cookie = c.trim().split('=')[0] + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-  });
-  out('cookieOutput', '✓ Все JS-доступные куки удалены');
-}
+        if (this.type === "blast") this.size += 1;
 
-// ── 5. Forms ──────────────────────────────────────────────────────────────────
-function interceptForm(e, formId) {
-  e.preventDefault();
-  var form = document.getElementById(formId);
-  var data = new FormData(form);
-  var entries = [];
-  data.forEach(function(v,k) { entries.push(k + '=' + v); });
-  out('formOutput', '⚠ Форма перехвачена!\nAction: ' + form.action + '\nMethod: ' + form.method + '\nДанные: ' + (entries.join(', ') || '(пусто)') + '\n→ JS инспектор → «Формы» показывает все формы страницы', 'orange');
-}
+        // Создание красивого следа
+        if (Math.random() < 0.5) {
+            game.particles.push(new Particle(this.pos.x, this.pos.y, this.color, rand(2, this.size/2)));
+        }
 
-// ── 6. Redirects ──────────────────────────────────────────────────────────────
-var redirectHistory = [window.location.href];
-function updateChain() {
-  var chain = document.getElementById('redirectChain');
-  chain.innerHTML = redirectHistory.slice(-5).map(function(u) { return '<span>' + u.split('/').slice(0,4).join('/') + '</span>'; }).join('');
-}
-function metaRefresh() {
-  out('redirectOutput', '⚠ Meta refresh симулирован (реальный мета-тег перезагрузит страницу через 5с)\n→ JS инспектор → «Meta redirect» обнаружит <meta http-equiv="refresh">');
-  var m = document.createElement('meta');
-  m.httpEquiv = 'refresh'; m.content = '99; url=' + window.location.href;
-  document.head.appendChild(m);
-}
-function jsRedirect() {
-  out('redirectOutput', '→ window.location.href = ... (симуляция — реальный редирект остановлен)\nПолный URL был бы: https://example.com/redirected?from=' + encodeURIComponent(window.location.href));
-  redirectHistory.push('https://example.com/redirected');
-  updateChain();
-}
-function jsReplaceRedirect() {
-  out('redirectOutput', '→ location.replace() симулирован\n→ Этот тип редиректа не добавляет запись в историю браузера — используется для скрытия следов');
-  redirectHistory.push('https://external-site.com/landing');
-  updateChain();
-}
-function historyPush() {
-  history.pushState({test: true}, '', '?page=manipulated&source=meggd_test');
-  out('redirectOutput', '✓ history.pushState() выполнен\n→ URL изменился без перезагрузки: ' + window.location.href + '\n→ Проверь адресную строку браузера');
-  redirectHistory.push(window.location.href);
-  updateChain();
-}
-function simulateChain() {
-  out('redirectOutput', '⚠ Симуляция цепочки: A → B → C → D (4 домена)\n→ Трассировщик редиректов в браузере должен показать все шаги', 'red');
-  ['site-a.com', 'tracker.site-b.net', 'affiliate.site-c.org', 'final-destination.io'].forEach(function(d) {
-    redirectHistory.push('https://' + d + '/path?ref=chain');
-  });
-  updateChain();
-}
-updateChain();
+        // Коллизии
+        let targets = this.owner.isPlayer ? game.enemies : [game.player];
+        for(let t of targets) {
+            if (t.hp > 0 && !this.hitEntities.has(t)) {
+                if (this.pos.dist(t.pos) < this.size + t.size) {
+                    t.takeDamage(this.damage, this.dir);
+                    this.hitEntities.add(t);
+                    
+                    if (this.type === "explosive") {
+                        game.addParticleExplosion(this.pos, "#ff5500", 40);
+                        game.shake = 10;
+                        this.markedForDeletion = true;
+                    } else if (this.type !== "pierce" && this.type !== "beam") {
+                        this.markedForDeletion = true;
+                    }
+                    game.addParticleExplosion(this.pos, this.color, 10);
+                }
+            }
+        }
+    }
 
-// ── 7. Hidden elements ────────────────────────────────────────────────────────
-function countHidden() {
-  var hidden = document.querySelectorAll('[style*="display:none"],[style*="visibility:hidden"],[hidden]');
-  out('hiddenOutput', '✓ Найдено скрытых элементов: ' + hidden.length + '\n' + Array.from(hidden).map(function(el) { return '  #' + (el.id || 'без id') + ' — ' + (el.textContent.trim() || el.tagName); }).join('\n'));
-}
-function revealHidden() {
-  ['hiddenTracker1','hiddenTracker2','hiddenTracker3'].forEach(function(id) {
-    var el = document.getElementById(id);
-    el.style.display = 'block';
-    el.style.visibility = 'visible';
-    el.style.background = 'rgba(255,0,0,0.2)';
-    el.style.padding = '6px';
-    el.style.borderRadius = '6px';
-    el.style.marginTop = '6px';
-    el.style.fontSize = '11px';
-    el.style.color = '#F44336';
-    el.removeAttribute('hidden');
-  });
-  out('hiddenOutput', '✓ Скрытые элементы показаны выше\n→ Они содержат data-атрибуты с фейковыми ID для слежения');
-}
-function addHidden() {
-  var el = document.createElement('div');
-  el.style.display = 'none';
-  el.textContent = 'Новый скрытый трекер ' + Date.now();
-  el.dataset.track = 'dynamic_' + Math.random().toString(36).substr(2,8);
-  document.body.appendChild(el);
-  out('hiddenOutput', '✓ Добавлен новый скрытый элемент (data-track=' + el.dataset.track + ')\n→ Теперь счётчик скрытых элементов вырастет на 1');
-}
-function canvasFingerprint() {
-  var c = document.createElement('canvas');
-  c.width = 200; c.height = 50;
-  var ctx = c.getContext('2d');
-  ctx.textBaseline = 'top'; ctx.font = '14px Arial';
-  ctx.fillStyle = '#f60'; ctx.fillRect(125,1,62,20);
-  ctx.fillStyle = '#069'; ctx.fillText('MEGGD fingerprint', 2, 15);
-  ctx.fillStyle = 'rgba(102,204,0,0.7)'; ctx.fillText('MEGGD fingerprint', 4, 17);
-  var fp = c.toDataURL().slice(-50);
-  out('hiddenOutput', '⚠ Canvas fingerprint = ....' + fp + '\n→ Уникальный отпечаток устройства — позволяет идентифицировать тебя без кук', 'red');
+    draw(ctx) {
+        ctx.save();
+        ctx.translate(this.pos.x, this.pos.y);
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.color;
+        ctx.fillStyle = this.color;
+        
+        ctx.beginPath();
+        if (this.type === "slash") {
+            ctx.rotate(Math.atan2(this.dir.y, this.dir.x));
+            ctx.arc(0, 0, this.size, -Math.PI/4, Math.PI/4);
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = 5;
+            ctx.stroke();
+        } else if (this.type === "beam") {
+            ctx.fillRect(-this.size, -this.size, this.size*2, this.size*2);
+        } else {
+            ctx.arc(0, 0, this.size, 0, Math.PI*2);
+            ctx.fill();
+            if (this.type === "pierce") {
+                ctx.fillStyle = "#000";
+                ctx.arc(0, 0, this.size * 0.5, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+        ctx.restore();
+    }
 }
 
-// ── 8. Iframes ────────────────────────────────────────────────────────────────
-function addIframe(src) {
-  var f = document.createElement('iframe');
-  f.src = src; f.style.width = '100%'; f.style.height = '120px';
-  f.style.border = '1px solid #2a2a44'; f.style.borderRadius = '8px';
-  f.style.marginTop = '6px';
-  document.getElementById('iframeContainer').appendChild(f);
-  out('iframeOutput', '✓ iframe добавлен: ' + src + '\n→ Браузер обнаружит во вкладке Ресурсы → Фреймы');
-}
-function addInlineIframe() {
-  var f = document.createElement('iframe');
-  f.srcdoc = '<html><body style="background:#1a1a2e;color:#6C63FF;padding:10px;font-family:sans-serif"><h3>Inline iframe (srcdoc)</h3><p>Контент встроен напрямую в HTML без внешнего URL</p></body></html>';
-  f.style.width = '100%'; f.style.height = '80px'; f.style.border = '1px solid #2a2a44'; f.style.borderRadius = '8px'; f.style.marginTop = '6px';
-  document.getElementById('iframeContainer').appendChild(f);
-  out('iframeOutput', '✓ srcdoc iframe создан — контент встроен напрямую\n→ Может скрывать вредоносный HTML без внешней ссылки', 'orange');
-}
-function removeIframes() {
-  document.getElementById('iframeContainer').innerHTML = '';
-  out('iframeOutput', '✓ Все iframe удалены');
-}
-
-// ── 9. DOM ────────────────────────────────────────────────────────────────────
-var counterVal = 0;
-function changeCounter(n, reset) {
-  counterVal = reset ? 0 : counterVal + n;
-  document.getElementById('counter').textContent = counterVal;
-}
-function changeTitle() {
-  var t = 'Страница взломана! 💀';
-  document.title = t;
-  out('domOutput', '✓ document.title = "' + t + '"\n→ Заголовок вкладки изменён через JS\n→ Проверь: JS инспектор → window.location');
-}
-function changeBackground() {
-  var colors = ['#0a0a14','#14000a','#000a0a','#0a0800'];
-  var c = colors[Math.floor(Math.random()*colors.length)];
-  document.body.style.background = c;
-  out('domOutput', '✓ document.body.style.background = "' + c + '"\n→ Весь внешний вид страницы изменён через JS');
-}
-function injectElement() {
-  var el = document.createElement('div');
-  el.style.cssText = 'background:rgba(244,67,54,0.15);border:1px solid #F44336;border-radius:8px;padding:12px;margin:6px 0;font-size:12px;color:#F44336;';
-  el.innerHTML = '⚠ <b>Внедрённый элемент</b> — создан через innerHTML. Может содержать фишинговую форму или вредоносный контент.';
-  document.getElementById('injectedArea').appendChild(el);
-  out('domOutput', '✓ Элемент внедрён через innerHTML\n→ Вектор XSS: таким образом встраивается фишинговый контент');
-}
-function removeElement() {
-  var area = document.getElementById('injectedArea');
-  if (area.lastChild) { area.removeChild(area.lastChild); out('domOutput', '✓ Элемент удалён'); }
-  else out('domOutput', '→ Нет элементов для удаления — сначала нажми «Внедрить»');
-}
-function cloneDOM() {
-  var section = document.querySelector('.section');
-  var clone = section.cloneNode(true);
-  clone.style.opacity = '0.5';
-  clone.style.pointerEvents = 'none';
-  document.querySelector('main').appendChild(clone);
-  out('domOutput', '✓ Секция клонирована через cloneNode()\n→ DOM изменён программно');
+class Particle {
+    constructor(x, y, color, size) {
+        this.pos = new Vec2(x, y);
+        this.vel = new Vec2(rand(-5, 5), rand(-5, 5));
+        this.color = color;
+        this.size = size;
+        this.life = 1.0;
+        this.decay = rand(0.02, 0.05);
+    }
+    update() {
+        this.pos = this.pos.add(this.vel);
+        this.vel = this.vel.mult(0.9);
+        this.life -= this.decay;
+    }
+    draw(ctx) {
+        ctx.globalAlpha = Math.max(0, this.life);
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.pos.x, this.pos.y, this.size, 0, Math.PI*2);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+    }
 }
 
-// ── 10. Network ───────────────────────────────────────────────────────────────
-function pingTracker() {
-  var trackers = ['https://www.google-analytics.com/g/collect?v=2', 'https://analytics.tiktok.com/api/v1/pixel/track', 'https://connect.facebook.net/signals/config/'];
-  var t = trackers[Math.floor(Math.random()*trackers.length)];
-  var img = new Image();
-  img.src = t + '&random=' + Math.random();
-  out('networkOutput', '⚠ Имитация трекера отправлена:\n' + t + '\n→ Должна появиться во вкладке Ресурсы как «Трекер/пиксель слежения»', 'orange');
-}
-function webSocketTest() {
-  try {
-    var ws = new WebSocket('wss://echo.websocket.org');
-    ws.onopen = function() { ws.send('MEGGD test'); out('networkOutput', '✓ WebSocket соединение установлено с echo.websocket.org\n→ JS инспектор → WebSocket покажет доступность API'); ws.close(); };
-    ws.onerror = function() { out('networkOutput', '→ WebSocket недоступен или заблокирован браузером'); };
-  } catch(e) { out('networkOutput', '✗ WebSocket ошибка: ' + e.message, 'red'); }
-}
-function serviceWorkerTest() {
-  if ('serviceWorker' in navigator) {
-    out('networkOutput', '⚠ Service Worker API доступен!\n→ Сервисные воркеры могут перехватывать ВСЕ сетевые запросы браузера\n→ Используются для offline-работы, но и для MITM-атак', 'orange');
-  } else {
-    out('networkOutput', '✓ Service Worker не поддерживается или заблокирован');
-  }
-}
-function sendAllData() {
-  var data = {
-    userAgent: navigator.userAgent,
-    language: navigator.language,
-    platform: navigator.platform,
-    cookieEnabled: navigator.cookieEnabled,
-    onLine: navigator.onLine,
-    screen: screen.width + 'x' + screen.height + ' ' + screen.colorDepth + 'bit',
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    memory: navigator.deviceMemory ? navigator.deviceMemory + 'GB RAM' : 'неизвестно',
-    cores: navigator.hardwareConcurrency + ' ядер',
-    touchPoints: navigator.maxTouchPoints,
-    referrer: document.referrer || 'нет',
-    url: window.location.href,
-    localStorage_keys: Object.keys(localStorage).length,
-    cookies: document.cookie ? document.cookie.split(';').length + ' кук' : '0',
-  };
-  out('networkOutput', '⚠ Данные устройства собраны (отправка симулирована):\n' + JSON.stringify(data, null, 2), 'red');
-  document.getElementById('deviceInfo').textContent = Object.entries(data).map(function(e) { return e[0] + ': ' + e[1]; }).join('\n');
+class FloatingText {
+    constructor(text, pos) {
+        this.text = text;
+        this.pos = new Vec2(pos.x + rand(-20,20), pos.y - 30);
+        this.life = 1.0;
+    }
+    update() {
+        this.pos.y -= 1;
+        this.life -= 0.02;
+    }
+    draw(ctx) {
+        ctx.globalAlpha = Math.max(0, this.life);
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 20px Arial";
+        ctx.fillText(this.text, this.pos.x, this.pos.y);
+        ctx.globalAlpha = 1.0;
+    }
 }
 
-// Auto-collect device info on load
-(function() {
-  document.getElementById('deviceInfo').textContent =
-    'userAgent: ' + navigator.userAgent.slice(0,60) + '...\n' +
-    'platform: ' + navigator.platform + '\n' +
-    'language: ' + navigator.language + '\n' +
-    'screen: ' + screen.width + 'x' + screen.height + '\n' +
-    'timezone: ' + Intl.DateTimeFormat().resolvedOptions().timeZone + '\n' +
-    '(нажмите «Собрать данные» для полного отчёта)';
-})();
+// ================= MAIN GAME ENGINE =================
+
+const game = {
+    state: 'menu', // menu, play, dead
+    player: null,
+    enemies: [],
+    projectiles: [],
+    particles: [],
+    texts:[],
+    camera: new Camera(),
+    lastTime: 0,
+    shake: 0,
+    bossesKilled: 0,
+
+    init() {
+        Input.init();
+        this.buildMenu();
+        requestAnimationFrame(t => this.loop(t));
+    },
+
+    buildMenu() {
+        const sel = document.getElementById('char-selector');
+        sel.innerHTML = '';
+        for (let name in CHARACTERS) {
+            if (name === "Mob") continue;
+            let c = CHARACTERS[name];
+            let card = document.createElement('div');
+            card.className = 'char-card';
+            card.innerHTML = `
+                <div class="color-preview" style="background:${c.color}"></div>
+                <h3>${name}</h3>
+                <small>HP: ${c.hp}</small>
+            `;
+            card.onclick = () => this.startGame(name);
+            sel.appendChild(card);
+        }
+    },
+
+    startGame(charName) {
+        document.getElementById('menu-screen').classList.remove('active');
+        document.getElementById('ui-layer').style.display = 'block';
+        
+        let profile = CHARACTERS[charName];
+        this.player = new Entity(1500, 1500, profile, true);
+        document.getElementById('player-name').innerText = charName;
+        document.getElementById('player-name').style.color = profile.color;
+
+        // Построение панели скиллов
+        const abCont = document.getElementById('abilities-container');
+        abCont.innerHTML = '';
+        profile.abilities.forEach((ab, i) => {
+            let btn = document.createElement('div');
+            btn.className = 'ability-btn';
+            btn.style.borderColor = ab.color;
+            // Иконка (текст)
+            btn.innerHTML = `<span>${i==0?'ATK':(i==1?'S1':'S2')}</span><div class="cooldown-overlay" id="cd-${i}"></div>`;
+            
+            // Бинд кнопок
+            const trigger = (e) => { e.preventDefault(); this.tryUseAbility(i); };
+            btn.addEventListener('touchstart', trigger);
+            btn.addEventListener('mousedown', trigger);
+            
+            abCont.appendChild(btn);
+        });
+
+        this.enemies = [];
+        this.projectiles =[];
+        this.particles = [];
+        this.texts =[];
+        this.bossesKilled = 0;
+        
+        this.spawnWorld();
+        this.state = 'play';
+    },
+
+    spawnWorld() {
+        // Спавн мобов
+        for(let i=0; i<30; i++) {
+            this.enemies.push(new Entity(rand(100, 2900), rand(100, 2900), CHARACTERS["Mob"], false));
+        }
+        // Спавн боссов (остальные персонажи)
+        for (let name in CHARACTERS) {
+            if (name === "Mob" || name === document.getElementById('player-name').innerText) continue;
+            this.enemies.push(new Entity(rand(500, 2500), rand(500, 2500), CHARACTERS[name], false));
+        }
+    },
+
+    tryUseAbility(index) {
+        if(this.state !== 'play') return;
+        let ab = this.player.profile.abilities[index];
+        if(!ab || this.player.cooldowns[index] > 0) return;
+
+        let aimDir = Input.getAimDir(this.player.pos);
+        ab.execute(this.player, aimDir);
+        this.player.cooldowns[index] = ab.cd; // Установка КД в секундах
+    },
+
+    addProjectile(owner, pos, dir, speed, size, dmg, color, type) {
+        let p = new Projectile(owner, pos, dir, speed, size, dmg, color, type);
+        this.projectiles.push(p);
+        return p;
+    },
+
+    addParticleExplosion(pos, color, count) {
+        for(let i=0; i<count; i++) {
+            this.particles.push(new Particle(pos.x, pos.y, color, rand(3, 8)));
+        }
+    },
+
+    addFloatingText(text, pos) {
+        this.texts.push(new FloatingText(text, pos));
+    },
+
+    showPopup(text, color) {
+        const msg = document.getElementById('center-msg');
+        msg.innerText = text;
+        msg.style.color = color;
+        msg.style.textShadow = `0 0 20px ${color}`;
+        msg.style.opacity = 1;
+        msg.style.transform = "translate(-50%, -50%) scale(1.5)";
+        setTimeout(() => { msg.style.opacity = 0; msg.style.transform = "translate(-50%, -50%) scale(1)"; }, 1500);
+    },
+
+    updateAI(enemy, dt) {
+        let dist = enemy.pos.dist(this.player.pos);
+        if (dist < 800) { // Агро радиус
+            let dir = this.player.pos.sub(enemy.pos).normalize();
+            
+            // Движение к игроку
+            if (dist > 200) {
+                enemy.vel = enemy.vel.add(dir.mult(enemy.speed * 0.1));
+            } else if (dist < 100) {
+                enemy.vel = enemy.vel.add(dir.mult(-enemy.speed * 0.1)); // Отступление
+            }
+
+            // Использование способностей ИИ
+            enemy.profile.abilities.forEach((ab, i) => {
+                if (enemy.cooldowns[i] <= 0 && Math.random() < 0.05) { // Шанс каста
+                    // Упреждение цели
+                    let aim = dir;
+                    if (Math.random() < 0.5) aim = this.player.pos.add(this.player.vel.mult(10)).sub(enemy.pos).normalize();
+                    ab.execute(enemy, aim);
+                    enemy.cooldowns[i] = ab.cd + rand(1, 3); // ИИ кастует реже
+                }
+            });
+        }
+    },
+
+    loop(timestamp) {
+        const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1);
+        this.lastTime = timestamp;
+
+        if (this.state === 'play') {
+            this.update(dt);
+            this.draw();
+        }
+
+        requestAnimationFrame(t => this.loop(t));
+    },
+
+    update(dt) {
+        // Управление Игроком
+        let moveDir = Input.getMovementDir();
+        if (moveDir.mag() > 0) {
+            this.player.vel = this.player.vel.add(moveDir.mult(this.player.speed * 0.1)); // Ускорение
+        }
+        this.player.update(dt);
+
+        // Обновление Камеры
+        this.camera.update(this.player.pos);
+
+        // Спам автоатаки если зажата мышь на ПК
+        if(Input.mouseDown && !Input.isMobile) {
+            this.tryUseAbility(0);
+        }
+
+        // Обновление Врагов
+        for (let i = this.enemies.length - 1; i >= 0; i--) {
+            let e = this.enemies[i];
+            this.updateAI(e, dt);
+            e.update(dt);
+            if (e.hp <= 0) this.enemies.splice(i, 1);
+        }
+
+        // Спавн новых мобов для массовки
+        if (this.enemies.length < 20 && Math.random() < 0.01) {
+            this.enemies.push(new Entity(rand(100, 2900), rand(100, 2900), CHARACTERS["Mob"], false));
+        }
+
+        // Projectiles
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            let p = this.projectiles[i];
+            p.update();
+            if (p.markedForDeletion) this.projectiles.splice(i, 1);
+        }
+
+        // Particles
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            let p = this.particles[i];
+            p.update();
+            if (p.life <= 0) this.particles.splice(i, 1);
+        }
+
+        // Texts
+        for (let i = this.texts.length - 1; i >= 0; i--) {
+            let t = this.texts[i];
+            t.update();
+            if (t.life <= 0) this.texts.splice(i, 1);
+        }
+
+        // Shake
+        if (this.shake > 0) this.shake *= 0.9;
+        if (this.shake < 0.5) this.shake = 0;
+
+        // UI Updates
+        document.getElementById('hp-fill').style.width = Math.max(0, (this.player.hp / this.player.maxHp) * 100) + '%';
+        this.player.profile.abilities.forEach((ab, i) => {
+            let cdRatio = this.player.cooldowns[i] / ab.cd;
+            let el = document.getElementById('cd-' + i);
+            if(el) el.style.height = (cdRatio * 100) + '%';
+        });
+
+        // Смерть
+        if (this.player.hp <= 0) {
+            this.state = 'dead';
+            document.getElementById('ui-layer').style.display = 'none';
+            document.getElementById('death-screen').classList.add('active');
+        }
+    },
+
+    draw() {
+        // Очистка
+        ctx.fillStyle = "#050510";
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.save();
+        
+        // Применение Камеры и Тряски
+        let sx = (Math.random() - 0.5) * this.shake;
+        let sy = (Math.random() - 0.5) * this.shake;
+        ctx.translate(width/2 - this.camera.pos.x + sx, height/2 - this.camera.pos.y + sy);
+
+        // Рисуем сетку мира (Стиль Киберпанк/Арена)
+        ctx.strokeStyle = "rgba(0, 255, 255, 0.05)";
+        ctx.lineWidth = 2;
+        const gridSize = 100;
+        let startX = Math.floor((this.camera.pos.x - width/2) / gridSize) * gridSize;
+        let startY = Math.floor((this.camera.pos.y - height/2) / gridSize) * gridSize;
+        
+        ctx.beginPath();
+        for(let x = startX; x < startX + width + gridSize; x += gridSize) {
+            if(x >= 0 && x <= 3000) { ctx.moveTo(x, 0); ctx.lineTo(x, 3000); }
+        }
+        for(let y = startY; y < startY + height + gridSize; y += gridSize) {
+            if(y >= 0 && y <= 3000) { ctx.moveTo(0, y); ctx.lineTo(3000, y); }
+        }
+        ctx.stroke();
+        
+        // Границы мира
+        ctx.strokeStyle = "#ff0055";
+        ctx.lineWidth = 5;
+        ctx.strokeRect(0, 0, 3000, 3000);
+
+        // Включаем красивое смешивание для эффектов
+        ctx.globalCompositeOperation = 'lighter';
+
+        // Рисуем партиклы
+        for (let p of this.particles) p.draw(ctx);
+
+        // Рисуем прожектайлы
+        for (let p of this.projectiles) p.draw(ctx);
+
+        // Выключаем смешивание для четкой отрисовки тел
+        ctx.globalCompositeOperation = 'source-over';
+
+        // Рисуем сущности (Сортировка по Y для псевдо-3D)
+        let renderQueue = [this.player, ...this.enemies].sort((a,b) => a.pos.y - b.pos.y);
+        for (let e of renderQueue) e.draw(ctx);
+
+        // Текст урона
+        for (let t of this.texts) t.draw(ctx);
+
+        ctx.restore();
+    }
+};
+
+// Start
+game.init();
+
 </script>
 </body>
 </html>
