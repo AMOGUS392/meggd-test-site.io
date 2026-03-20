@@ -29,32 +29,32 @@
 <!-- ========================================== -->
 <script id="anti-code-script">
 const AntiCode = (function() {
-    // Генерация одноразового маршрутного токена для легальных изменений (SIS)
     const SECRET_ROUTE_TOKEN = Math.random().toString(36).substring(2) + Date.now().toString(36);
     let isAuthorized = false;
 
-    // Сохраняем оригинальные методы браузера до их переопределения
+    // Сохраняем оригинальные функции браузера до их переопределения
     const originalTextContentDescriptor = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent');
     const originalInnerHTMLDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+    const originalAppendChild = Node.prototype.appendChild;
+    const originalInsertBefore = Node.prototype.insertBefore;
 
-    // Ловушка: блокирует изменение, выводит инфу и крашит атакующий скрипт
+    // Функция безопасной блокировки (без переполнения стека)
     function executeTrap(maliciousCode, reason) {
+        // Выводим стилизованное предупреждение в консоль
         console.warn(`%cAnti-code[
   STATUS: BLOCKED
-  ACTION: Redirected to infinite recursion trap (Stack Overflow Error)
+  ACTION: Operation Prevented Safely (Ignored)
   REASON: ${reason}
   PAYLOAD PREVIEW: ${String(maliciousCode).substring(0, 150)}...
-]`, 'color: #ff3333; font-weight: bold; font-size: 13px; background: #222; padding: 10px; border-radius: 5px;');
-        
-        // Перенаправление кода самого на себя в бесконечный цикл (приводит к ошибке)
-        function infiniteLoop() {
-            try { 
-                // Выполняет код, который хотел изменить сайт
-                new Function(maliciousCode)(); 
-            } catch(e) {}
-            infiniteLoop(); // Бесконечная рекурсия -> Error: Maximum call stack size exceeded
-        }
-        infiniteLoop();
+]`, 'color: #ff3333; font-weight: bold; font-size: 13px; background: #222; padding: 10px; border-radius: 5px; border-left: 4px solid red;');
+    }
+
+    // Вспомогательная функция для проверки наличия скриптов внутри элементов
+    function isMaliciousNode(node) {
+        if (!node) return false;
+        if (node.nodeName === 'SCRIPT') return true;
+        if (node.querySelectorAll && node.querySelectorAll('script').length > 0) return true;
+        return false;
     }
 
     // Перехват модификации текста (защита тегов скриптов)
@@ -62,7 +62,7 @@ const AntiCode = (function() {
         set: function(value) {
             if (!isAuthorized && (this.id === 'game-script' || this.id === 'sis-script' || this.id === 'anti-code-script')) {
                 executeTrap(value, `Attempted to modify protected script: ${this.id}`);
-                return;
+                return; // Возвращаем пустоту, обрывая действие
             }
             originalTextContentDescriptor.set.call(this, value);
         },
@@ -74,44 +74,46 @@ const AntiCode = (function() {
         set: function(value) {
             if (!isAuthorized && (this === document.body || this === document.documentElement || this.id === 'game-container')) {
                 executeTrap(value, `Attempted to overwrite site structural DOM: ${this.tagName}`);
-                return;
+                return; // Обрываем действие
             }
             originalInnerHTMLDescriptor.set.call(this, value);
         },
         get: originalInnerHTMLDescriptor.get
     });
 
-    // Перехват добавления новых сторонних скриптов в DOM
-    const observer = new MutationObserver(mutations => {
-        if (isAuthorized) return;
-        for (let mutation of mutations) {
-            for (let node of mutation.addedNodes) {
-                if (node.tagName === 'SCRIPT') {
-                    let code = node.textContent || node.src || "Unknown inline script";
-                    executeTrap(code, "Unauthorized script injection detected.");
-                    node.remove();
-                }
-            }
+    // Перехват синхронного добавления скриптов в DOM (например, инъекции vConsole)
+    Node.prototype.appendChild = function(node) {
+        if (!isAuthorized && isMaliciousNode(node)) {
+            let code = node.src || node.textContent || "Nested Script Element";
+            executeTrap(code, "Unauthorized script injection (appendChild) detected.");
+            return node; // Возвращаем ноду, имитируя успешное добавление для обмана атакующего скрипта
         }
-    });
+        return originalAppendChild.call(this, node);
+    };
 
-    window.addEventListener('DOMContentLoaded', () => {
-        observer.observe(document.documentElement, { childList: true, subtree: true });
-    });
+    Node.prototype.insertBefore = function(node, refNode) {
+        if (!isAuthorized && isMaliciousNode(node)) {
+            let code = node.src || node.textContent || "Nested Script Element";
+            executeTrap(code, "Unauthorized script injection (insertBefore) detected.");
+            return node; 
+        }
+        return originalInsertBefore.call(this, node, refNode);
+    };
 
     return {
-        // Сайт требует разрешения (токен) для изменения своего маршрута
+        // Легальный маршрут: скрипт с правильным токеном может изменить DOM
         authorizeChange: function(token, action) {
             if (token === SECRET_ROUTE_TOKEN) {
                 isAuthorized = true;
                 try { action(); } finally { isAuthorized = false; }
             } else {
-                executeTrap(action.toString(), "Invalid Anti-Code permission token.");
+                executeTrap("Unauthorized Action", "Invalid Anti-Code permission token.");
             }
         },
+        // Выдача токена только один раз (для SIS)
         _issueTokenForSIS: function() {
             const token = SECRET_ROUTE_TOKEN;
-            delete this._issueTokenForSIS; // Выдаем токен 1 раз и удаляем функцию
+            delete this._issueTokenForSIS; // Удаляем функцию после 1 использования
             return token;
         }
     };
@@ -150,7 +152,7 @@ const SentinelIntegritySystem = (function() {
         if (typeof AntiCode !== 'undefined' && SIS_TOKEN) {
             AntiCode.authorizeChange(SIS_TOKEN, renderCrashScreen);
         } else {
-            renderCrashScreen(); // Fallback, если AntiCode удален хакером
+            renderCrashScreen(); // Fallback
         }
         
         setTimeout(() => { window.location.replace("about:blank"); }, 2500);
@@ -206,7 +208,7 @@ function getGameSourceCode() {
 // Запуск SIS
 SentinelIntegritySystem.init(getGameSourceCode());
 
-// Отправка отчетов каждые 10 секунд (пульс)
+// Отправка отчетов каждые 10 секунд
 setInterval(() => {
     try {
         if (typeof SentinelIntegritySystem === 'undefined' || !SentinelIntegritySystem.verify) {
@@ -214,9 +216,8 @@ setInterval(() => {
         }
         SentinelIntegritySystem.verify(getGameSourceCode());
     } catch (e) {
-        // Если кто-то удалил систему защиты или ей некому отправлять код
         if (typeof AntiCode !== 'undefined') {
-            AntiCode.authorizeChange(null, () => { // Вызовет ловушку Anti-code из-за null токена
+            AntiCode.authorizeChange(null, () => { 
                  document.body.innerHTML = "FATAL";
             });
         }
