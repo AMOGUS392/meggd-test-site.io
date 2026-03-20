@@ -12,16 +12,60 @@
             touch-action: none; user-select: none;
         }
         canvas { display: block; }
+        
+        /* Управление ПК и Мобайл */
         #mobile-controls { position: absolute; bottom: 0; width: 100%; height: 100%; pointer-events: none; }
         #joystick-zone { position: absolute; bottom: 20px; left: 20px; width: 120px; height: 120px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; pointer-events: auto; display: flex; justify-content: center; align-items: center; }
         #joystick-knob { width: 50px; height: 50px; background: rgba(255, 255, 255, 0.5); border-radius: 50%; position: absolute; }
-        .action-btn { position: absolute; background: rgba(46, 204, 113, 0.7); color: white; border: 2px solid white; border-radius: 50%; pointer-events: auto; display: flex; justify-content: center; align-items: center; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        .action-btn:active { background: rgba(39, 174, 96, 0.9); transform: scale(0.95); }
+        .action-btn { position: absolute; background: rgba(46, 204, 113, 0.7); color: white; border: 2px solid white; border-radius: 50%; pointer-events: auto; display: flex; justify-content: center; align-items: center; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); cursor: pointer; }
+        .action-btn:active { transform: scale(0.95); }
         #btn-attack { bottom: 30px; right: 30px; width: 70px; height: 70px; font-size: 12px; background: rgba(231, 76, 60, 0.7); }
         #btn-recruit { bottom: 110px; right: 80px; width: 60px; height: 60px; font-size: 10px; background: rgba(52, 152, 219, 0.7); }
         #pc-hint { position: absolute; top: 10px; left: 10px; color: white; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; pointer-events: none; }
+        
         @media (min-width: 1024px) { #mobile-controls { display: none; } }
         @media (max-width: 1023px) { #pc-hint { display: none; } }
+
+        /* Кнопка и меню Anti-Code */
+        #ac-btn { 
+            top: 20px; right: 20px; bottom: auto; left: auto; 
+            width: 50px; height: 50px; font-size: 24px; 
+            background: rgba(39, 174, 96, 0.9); z-index: 100;
+            box-shadow: 0 0 10px #2ecc71; animation: pulseAC 2s infinite; 
+        }
+        @keyframes pulseAC { 
+            0% { box-shadow: 0 0 5px #2ecc71; } 
+            50% { box-shadow: 0 0 20px #2ecc71; } 
+            100% { box-shadow: 0 0 5px #2ecc71; } 
+        }
+        
+        #ac-menu { 
+            display: none; position: absolute; top: 50%; left: 50%; 
+            transform: translate(-50%, -50%); background: rgba(25, 35, 45, 0.95); 
+            border: 2px solid #2ecc71; border-radius: 12px; width: 85%; max-width: 400px; 
+            padding: 20px; color: white; z-index: 1000; box-shadow: 0 10px 40px rgba(0,0,0,0.8); 
+            pointer-events: auto; backdrop-filter: blur(5px);
+        }
+        .ac-header { font-size: 18px; font-weight: bold; color: #2ecc71; text-align: center; border-bottom: 2px solid #2ecc71; padding-bottom: 10px; margin-bottom: 15px; letter-spacing: 1px; }
+        .ac-stat { margin: 12px 0; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; }
+        .ac-stat span { font-weight: bold; font-family: monospace; font-size: 16px; float: right; }
+        
+        #ac-logs { 
+            background: #0a0f14; padding: 10px; border-radius: 6px; 
+            height: 140px; overflow-y: auto; font-family: monospace; 
+            font-size: 11px; color: #aaa; margin-top: 15px; border: 1px solid #444; 
+            word-wrap: break-word; line-height: 1.4;
+        }
+        #ac-logs span.time { color: #3498db; }
+        #ac-logs span.err { color: #e74c3c; font-weight: bold; }
+        #ac-logs span.ok { color: #2ecc71; }
+        
+        #ac-close { 
+            margin-top: 15px; width: 100%; padding: 12px; background: #e74c3c; 
+            color: white; border: none; border-radius: 6px; font-weight: bold; 
+            font-size: 14px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
+        }
+        #ac-close:active { background: #c0392b; transform: scale(0.98); }
     </style>
 
 <!-- ========================================== -->
@@ -31,25 +75,29 @@
 const AntiCode = (function() {
     const SECRET_ROUTE_TOKEN = Math.random().toString(36).substring(2) + Date.now().toString(36);
     let isAuthorized = false;
+    
+    // Статистика для интерфейса
+    let blockedCount = 0;
+    let actionLogs =[];
 
-    // Сохраняем оригинальные функции браузера до их переопределения
     const originalTextContentDescriptor = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent');
     const originalInnerHTMLDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
     const originalAppendChild = Node.prototype.appendChild;
     const originalInsertBefore = Node.prototype.insertBefore;
 
-    // Функция безопасной блокировки (без переполнения стека)
-    function executeTrap(maliciousCode, reason) {
-        // Выводим стилизованное предупреждение в консоль
-        console.warn(`%cAnti-code[
-  STATUS: BLOCKED
-  ACTION: Operation Prevented Safely (Ignored)
-  REASON: ${reason}
-  PAYLOAD PREVIEW: ${String(maliciousCode).substring(0, 150)}...
-]`, 'color: #ff3333; font-weight: bold; font-size: 13px; background: #222; padding: 10px; border-radius: 5px; border-left: 4px solid red;');
+    function addLog(reason) {
+        blockedCount++;
+        const timeStr = new Date().toLocaleTimeString('ru-RU');
+        actionLogs.push(`<span class="time">[${timeStr}]</span> <span class="err">[БЛОК]</span> ${reason}`);
+        // Ограничиваем историю 50 логами, чтобы не засорять память
+        if (actionLogs.length > 50) actionLogs.shift();
     }
 
-    // Вспомогательная функция для проверки наличия скриптов внутри элементов
+    function executeTrap(maliciousCode, reason) {
+        addLog(reason);
+        console.warn(`%cAnti-code [BLOCKED]: ${reason}`, 'color: #ff3333; font-weight: bold; background: #222; padding: 5px; border-radius: 5px;');
+    }
+
     function isMaliciousNode(node) {
         if (!node) return false;
         if (node.nodeName === 'SCRIPT') return true;
@@ -57,64 +105,59 @@ const AntiCode = (function() {
         return false;
     }
 
-    // Перехват модификации текста (защита тегов скриптов)
     Object.defineProperty(Node.prototype, 'textContent', {
         set: function(value) {
             if (!isAuthorized && (this.id === 'game-script' || this.id === 'sis-script' || this.id === 'anti-code-script')) {
-                executeTrap(value, `Attempted to modify protected script: ${this.id}`);
-                return; // Возвращаем пустоту, обрывая действие
+                executeTrap(value, `Попытка изменить код скрипта: ${this.id}`);
+                return; 
             }
             originalTextContentDescriptor.set.call(this, value);
         },
         get: originalTextContentDescriptor.get
     });
 
-    // Перехват перезаписи структуры сайта (защита DOM)
     Object.defineProperty(Element.prototype, 'innerHTML', {
         set: function(value) {
             if (!isAuthorized && (this === document.body || this === document.documentElement || this.id === 'game-container')) {
-                executeTrap(value, `Attempted to overwrite site structural DOM: ${this.tagName}`);
-                return; // Обрываем действие
+                executeTrap(value, `Попытка перезаписи ядра (DOM: ${this.tagName})`);
+                return; 
             }
             originalInnerHTMLDescriptor.set.call(this, value);
         },
         get: originalInnerHTMLDescriptor.get
     });
 
-    // Перехват синхронного добавления скриптов в DOM (например, инъекции vConsole)
     Node.prototype.appendChild = function(node) {
         if (!isAuthorized && isMaliciousNode(node)) {
-            let code = node.src || node.textContent || "Nested Script Element";
-            executeTrap(code, "Unauthorized script injection (appendChild) detected.");
-            return node; // Возвращаем ноду, имитируя успешное добавление для обмана атакующего скрипта
+            executeTrap(node.src || node.textContent, "Попытка внедрения стороннего скрипта (appendChild).");
+            return node; 
         }
         return originalAppendChild.call(this, node);
     };
 
     Node.prototype.insertBefore = function(node, refNode) {
         if (!isAuthorized && isMaliciousNode(node)) {
-            let code = node.src || node.textContent || "Nested Script Element";
-            executeTrap(code, "Unauthorized script injection (insertBefore) detected.");
+            executeTrap(node.src || node.textContent, "Попытка внедрения стороннего скрипта (insertBefore).");
             return node; 
         }
         return originalInsertBefore.call(this, node, refNode);
     };
 
     return {
-        // Легальный маршрут: скрипт с правильным токеном может изменить DOM
         authorizeChange: function(token, action) {
             if (token === SECRET_ROUTE_TOKEN) {
                 isAuthorized = true;
                 try { action(); } finally { isAuthorized = false; }
             } else {
-                executeTrap("Unauthorized Action", "Invalid Anti-Code permission token.");
+                executeTrap("Unauthorized", "Неверный токен доступа.");
             }
         },
-        // Выдача токена только один раз (для SIS)
         _issueTokenForSIS: function() {
-            const token = SECRET_ROUTE_TOKEN;
-            delete this._issueTokenForSIS; // Удаляем функцию после 1 использования
-            return token;
+            const token = SECRET_ROUTE_TOKEN; delete this._issueTokenForSIS; return token;
+        },
+        // Публичный метод для UI
+        getStats: function() {
+            return { blocks: blockedCount, logs: actionLogs };
         }
     };
 })();
@@ -128,53 +171,35 @@ const SentinelIntegritySystem = (function() {
     let originalSource = null;
     let lastReportTime = Date.now();
     let isCrashed = false;
-    
-    // Получаем токен легального доступа от Anti-Code
     const SIS_TOKEN = typeof AntiCode !== 'undefined' ? AntiCode._issueTokenForSIS() : null;
 
     function executeCrash(reason) {
-        if (isCrashed) return;
-        isCrashed = true;
-        
+        if (isCrashed) return; isCrashed = true;
         if (reason === "Detected Tamping") alert("Detected Tamping");
-        
         const renderCrashScreen = () => {
             document.body.innerHTML = `
                 <div style="display:flex; height:100vh; width:100vw; background:#0a0a0a; color:#ff3333; justify-content:center; align-items:center; flex-direction:column; font-family:monospace; text-align:center;">
                     <h1 style="font-size: 40px; margin-bottom: 10px; border-bottom: 2px solid red;">[ SIS SECURITY BREACH ]</h1>
                     <h2 style="font-size: 24px;">CRASH INITIATED</h2>
                     <p style="font-size: 20px; color: #ff9999;">${reason}</p>
-                </div>
-            `;
+                </div>`;
         };
-
-        // SIS меняет интерфейс легально, получая маршрут у Anti-Code
-        if (typeof AntiCode !== 'undefined' && SIS_TOKEN) {
-            AntiCode.authorizeChange(SIS_TOKEN, renderCrashScreen);
-        } else {
-            renderCrashScreen(); // Fallback
-        }
-        
+        if (typeof AntiCode !== 'undefined' && SIS_TOKEN) AntiCode.authorizeChange(SIS_TOKEN, renderCrashScreen);
+        else renderCrashScreen();
         setTimeout(() => { window.location.replace("about:blank"); }, 2500);
     }
 
     const system = {
         init: function(code) {
-            originalSource = code;
-            lastReportTime = Date.now();
+            originalSource = code; lastReportTime = Date.now();
             setInterval(() => {
                 if (isCrashed) return;
-                if (Date.now() - lastReportTime > 25000) {
-                    executeCrash("The server was unresponsive for 25 seconds.");
-                }
+                if (Date.now() - lastReportTime > 25000) executeCrash("The server was unresponsive for 25 seconds.");
             }, 1000);
         },
         verify: function(clientCode) {
-            if (isCrashed) return;
-            lastReportTime = Date.now();
-            if (clientCode !== originalSource) {
-                executeCrash("Detected Tamping");
-            }
+            if (isCrashed) return; lastReportTime = Date.now();
+            if (clientCode !== originalSource) executeCrash("Detected Tamping");
         }
     };
     return Object.freeze(system);
@@ -184,6 +209,25 @@ const SentinelIntegritySystem = (function() {
 <body>
 
     <div id="game-container">
+        <!-- Кнопка вызова меню AC -->
+        <div id="ac-btn" class="action-btn" title="Панель Управления Защитой">🛡️</div>
+        
+        <!-- Меню AC -->
+        <div id="ac-menu">
+            <div class="ac-header">СИСТЕМА ЗАЩИТЫ (SIS)</div>
+            <div class="ac-stat">Состояние ядра: <span style="color:#2ecc71;">АКТИВНО 🟢</span></div>
+            <div class="ac-stat">След. проверка кода: <span id="ac-timer" style="color:#f1c40f;">10.0s</span></div>
+            <div class="ac-stat">Отражено атак (Anti-Code): <span id="ac-blocks" style="color:#e74c3c;">0</span></div>
+            
+            <div id="ac-logs">
+                <span class="time">[SYS]</span> Ядро Anti-Code интегрировано.<br>
+                <span class="time">[SYS]</span> DOM Структура под защитой.<br>
+                <span class="time">[SYS]</span> Ожидание несанкционированных инъекций...<br>
+            </div>
+            
+            <button id="ac-close">СВЕРНУТЬ ТЕРМИНАЛ</button>
+        </div>
+
         <canvas id="gameCanvas"></canvas>
         <div id="pc-hint">
             <b>Управление (ПК):</b><br>WASD - Движение<br>Пробел - Бросок<br>E - Вербовка
@@ -205,22 +249,18 @@ function getGameSourceCode() {
     return scriptElem.textContent;
 }
 
-// Запуск SIS
 SentinelIntegritySystem.init(getGameSourceCode());
 
-// Отправка отчетов каждые 10 секунд
+// Таймер для интерфейса
+let nextPulseTime = Date.now() + 10000;
+
 setInterval(() => {
     try {
-        if (typeof SentinelIntegritySystem === 'undefined' || !SentinelIntegritySystem.verify) {
-            throw new Error("SIS Not Found");
-        }
+        if (typeof SentinelIntegritySystem === 'undefined' || !SentinelIntegritySystem.verify) throw new Error("SIS Not Found");
         SentinelIntegritySystem.verify(getGameSourceCode());
+        nextPulseTime = Date.now() + 10000; // Сбрасываем таймер после успешной проверки
     } catch (e) {
-        if (typeof AntiCode !== 'undefined') {
-            AntiCode.authorizeChange(null, () => { 
-                 document.body.innerHTML = "FATAL";
-            });
-        }
+        if (typeof AntiCode !== 'undefined') AntiCode.authorizeChange(null, () => { document.body.innerHTML = "FATAL"; });
         document.body.innerHTML = `
             <div style="display:flex; height:100vh; width:100vw; background:#000; color:#ff3333; justify-content:center; align-items:center; flex-direction:column; font-family:monospace; text-align:center;">
                 <h1 style="font-size: 40px; margin:0;">[ FATAL ERROR ]</h1>
@@ -229,6 +269,53 @@ setInterval(() => {
         setTimeout(() => { window.location.replace("about:blank"); }, 2500);
     }
 }, 10000);
+
+// --- ЛОГИКА UI МЕНЮ ЗАЩИТЫ ---
+const acBtn = document.getElementById('ac-btn');
+const acMenu = document.getElementById('ac-menu');
+const acClose = document.getElementById('ac-close');
+const acTimer = document.getElementById('ac-timer');
+const acBlocks = document.getElementById('ac-blocks');
+const acLogs = document.getElementById('ac-logs');
+
+function toggleMenu(state) {
+    acMenu.style.display = state ? 'block' : 'none';
+}
+
+acBtn.addEventListener('mousedown', (e) => { e.preventDefault(); toggleMenu(true); });
+acBtn.addEventListener('touchstart', (e) => { e.preventDefault(); toggleMenu(true); });
+acClose.addEventListener('mousedown', (e) => { e.preventDefault(); toggleMenu(false); });
+acClose.addEventListener('touchstart', (e) => { e.preventDefault(); toggleMenu(false); });
+
+// Обновление таймеров и логов в меню (выполняется легально, не задевая ловушки)
+setInterval(() => {
+    if (acMenu.style.display === 'none') return; // Обновляем только когда меню открыто
+    
+    // Обновление времени
+    let timeLeft = Math.max(0, (nextPulseTime - Date.now()) / 1000).toFixed(1);
+    acTimer.innerText = timeLeft + 's';
+    
+    if (typeof AntiCode !== 'undefined') {
+        let stats = AntiCode.getStats();
+        acBlocks.innerText = stats.blocks;
+        
+        // Формируем HTML для логов
+        let logHTML = '<span class="time">[SYS]</span> Ядро Anti-Code интегрировано.<br>';
+        logHTML += '<span class="time">[SYS]</span> DOM Структура под защитой.<br>';
+        if (stats.logs.length === 0) {
+            logHTML += '<span class="time">[SYS]</span> Ожидание несанкционированных инъекций...<br>';
+        } else {
+            stats.logs.forEach(log => { logHTML += log + '<br>'; });
+        }
+        
+        // Обновляем логи только если они изменились (чтобы скролл не дергался)
+        if (acLogs.innerHTML !== logHTML) {
+            acLogs.innerHTML = logHTML;
+            acLogs.scrollTop = acLogs.scrollHeight; // Прокрутка вниз к новым логам
+        }
+    }
+}, 100); // 10 раз в секунду плавно обновляем данные
+
 
 // --- САМА ИГРА ---
 const canvas = document.getElementById('gameCanvas');
@@ -277,7 +364,7 @@ if(canvas) {
     }
 
     const CAMERA = { x: 0, y: 0 };
-    const CHESTNUTS = [];
+    const CHESTNUTS =[];
     const BOTS =[];
     const PHRASES = {
         neutral:["Где мой каштан?", "Просто гуляю...", "Хочу в команду!"],
@@ -401,7 +488,7 @@ if(canvas) {
     for (let i = 0; i < 40; i++) BOTS.push(new Bot((Math.random() - 0.5) * 3000, (Math.random() - 0.5) * 3000));
 
     function loop() {
-        if (!document.getElementById('gameCanvas')) return; // Остановка если SIS крашнул сайт
+        if (!document.getElementById('gameCanvas')) return;
 
         ctx.fillStyle = '#8fbf73'; ctx.fillRect(0, 0, width, height);
         CAMERA.x = player.x - width / 2; CAMERA.y = player.y - height / 2;
