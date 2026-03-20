@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Каштановые Боты (Защищено SIS)</title>
+    <title>Каштановые Боты (Защищено Anti-code & SIS)</title>
     <style>
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
@@ -23,6 +23,161 @@
         @media (min-width: 1024px) { #mobile-controls { display: none; } }
         @media (max-width: 1023px) { #pc-hint { display: none; } }
     </style>
+
+<!-- ========================================== -->
+<!-- 1. ANTI-CODE SYSTEM (ПЕРВАЯ ЛИНИЯ ОБОРОНЫ) -->
+<!-- ========================================== -->
+<script id="anti-code-script">
+const AntiCode = (function() {
+    // Генерация одноразового маршрутного токена для легальных изменений (SIS)
+    const SECRET_ROUTE_TOKEN = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    let isAuthorized = false;
+
+    // Сохраняем оригинальные методы браузера до их переопределения
+    const originalTextContentDescriptor = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent');
+    const originalInnerHTMLDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+
+    // Ловушка: блокирует изменение, выводит инфу и крашит атакующий скрипт
+    function executeTrap(maliciousCode, reason) {
+        console.warn(`%cAnti-code[
+  STATUS: BLOCKED
+  ACTION: Redirected to infinite recursion trap (Stack Overflow Error)
+  REASON: ${reason}
+  PAYLOAD PREVIEW: ${String(maliciousCode).substring(0, 150)}...
+]`, 'color: #ff3333; font-weight: bold; font-size: 13px; background: #222; padding: 10px; border-radius: 5px;');
+        
+        // Перенаправление кода самого на себя в бесконечный цикл (приводит к ошибке)
+        function infiniteLoop() {
+            try { 
+                // Выполняет код, который хотел изменить сайт
+                new Function(maliciousCode)(); 
+            } catch(e) {}
+            infiniteLoop(); // Бесконечная рекурсия -> Error: Maximum call stack size exceeded
+        }
+        infiniteLoop();
+    }
+
+    // Перехват модификации текста (защита тегов скриптов)
+    Object.defineProperty(Node.prototype, 'textContent', {
+        set: function(value) {
+            if (!isAuthorized && (this.id === 'game-script' || this.id === 'sis-script' || this.id === 'anti-code-script')) {
+                executeTrap(value, `Attempted to modify protected script: ${this.id}`);
+                return;
+            }
+            originalTextContentDescriptor.set.call(this, value);
+        },
+        get: originalTextContentDescriptor.get
+    });
+
+    // Перехват перезаписи структуры сайта (защита DOM)
+    Object.defineProperty(Element.prototype, 'innerHTML', {
+        set: function(value) {
+            if (!isAuthorized && (this === document.body || this === document.documentElement || this.id === 'game-container')) {
+                executeTrap(value, `Attempted to overwrite site structural DOM: ${this.tagName}`);
+                return;
+            }
+            originalInnerHTMLDescriptor.set.call(this, value);
+        },
+        get: originalInnerHTMLDescriptor.get
+    });
+
+    // Перехват добавления новых сторонних скриптов в DOM
+    const observer = new MutationObserver(mutations => {
+        if (isAuthorized) return;
+        for (let mutation of mutations) {
+            for (let node of mutation.addedNodes) {
+                if (node.tagName === 'SCRIPT') {
+                    let code = node.textContent || node.src || "Unknown inline script";
+                    executeTrap(code, "Unauthorized script injection detected.");
+                    node.remove();
+                }
+            }
+        }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+    });
+
+    return {
+        // Сайт требует разрешения (токен) для изменения своего маршрута
+        authorizeChange: function(token, action) {
+            if (token === SECRET_ROUTE_TOKEN) {
+                isAuthorized = true;
+                try { action(); } finally { isAuthorized = false; }
+            } else {
+                executeTrap(action.toString(), "Invalid Anti-Code permission token.");
+            }
+        },
+        _issueTokenForSIS: function() {
+            const token = SECRET_ROUTE_TOKEN;
+            delete this._issueTokenForSIS; // Выдаем токен 1 раз и удаляем функцию
+            return token;
+        }
+    };
+})();
+</script>
+
+<!-- ========================================== -->
+<!-- 2. SENTINEL INTEGRITY SYSTEM (SIS)         -->
+<!-- ========================================== -->
+<script id="sis-script">
+const SentinelIntegritySystem = (function() {
+    let originalSource = null;
+    let lastReportTime = Date.now();
+    let isCrashed = false;
+    
+    // Получаем токен легального доступа от Anti-Code
+    const SIS_TOKEN = typeof AntiCode !== 'undefined' ? AntiCode._issueTokenForSIS() : null;
+
+    function executeCrash(reason) {
+        if (isCrashed) return;
+        isCrashed = true;
+        
+        if (reason === "Detected Tamping") alert("Detected Tamping");
+        
+        const renderCrashScreen = () => {
+            document.body.innerHTML = `
+                <div style="display:flex; height:100vh; width:100vw; background:#0a0a0a; color:#ff3333; justify-content:center; align-items:center; flex-direction:column; font-family:monospace; text-align:center;">
+                    <h1 style="font-size: 40px; margin-bottom: 10px; border-bottom: 2px solid red;">[ SIS SECURITY BREACH ]</h1>
+                    <h2 style="font-size: 24px;">CRASH INITIATED</h2>
+                    <p style="font-size: 20px; color: #ff9999;">${reason}</p>
+                </div>
+            `;
+        };
+
+        // SIS меняет интерфейс легально, получая маршрут у Anti-Code
+        if (typeof AntiCode !== 'undefined' && SIS_TOKEN) {
+            AntiCode.authorizeChange(SIS_TOKEN, renderCrashScreen);
+        } else {
+            renderCrashScreen(); // Fallback, если AntiCode удален хакером
+        }
+        
+        setTimeout(() => { window.location.replace("about:blank"); }, 2500);
+    }
+
+    const system = {
+        init: function(code) {
+            originalSource = code;
+            lastReportTime = Date.now();
+            setInterval(() => {
+                if (isCrashed) return;
+                if (Date.now() - lastReportTime > 25000) {
+                    executeCrash("The server was unresponsive for 25 seconds.");
+                }
+            }, 1000);
+        },
+        verify: function(clientCode) {
+            if (isCrashed) return;
+            lastReportTime = Date.now();
+            if (clientCode !== originalSource) {
+                executeCrash("Detected Tamping");
+            }
+        }
+    };
+    return Object.freeze(system);
+})();
+</script>
 </head>
 <body>
 
@@ -39,125 +194,52 @@
     </div>
 
 <!-- ========================================== -->
-<!-- SENTINEL INTEGRITY SYSTEM (ANTI-TAMPER)    -->
-<!-- ========================================== -->
-<script id="sis-script">
-const SentinelIntegritySystem = (function() {
-    let originalSource = null;
-    let lastReportTime = Date.now();
-    let isCrashed = false;
-
-    // Критический сценарий краша
-    function executeCrash(reason) {
-        if (isCrashed) return;
-        isCrashed = true;
-        
-        // Согласно требованию: сначала алерт при вмешательстве
-        if (reason === "Detected Tamping") {
-            alert("Detected Tamping");
-        }
-        
-        // Полное уничтожение интерфейса и остановка игры
-        document.body.innerHTML = `
-            <div style="display:flex; height:100vh; width:100vw; background:#0a0a0a; color:#ff3333; justify-content:center; align-items:center; flex-direction:column; font-family:monospace; text-align:center;">
-                <h1 style="font-size: 40px; margin-bottom: 10px; border-bottom: 2px solid red;">[ SIS SECURITY BREACH ]</h1>
-                <h2 style="font-size: 24px;">CRASH INITIATED</h2>
-                <p style="font-size: 20px; color: #ff9999;">${reason}</p>
-            </div>
-        `;
-        
-        // Выкидывание из сайта через 2.5 секунды
-        setTimeout(() => {
-            window.location.replace("about:blank");
-        }, 2500);
-    }
-
-    const system = {
-        init: function(code) {
-            originalSource = code;
-            lastReportTime = Date.now();
-
-            // Жесткий таймер SIS (проверка отклика сервера/сайта каждые 25 сек)
-            setInterval(() => {
-                if (isCrashed) return;
-                // Если с момента последней отправки кода прошло больше 25 секунд
-                if (Date.now() - lastReportTime > 25000) {
-                    executeCrash("The server was unresponsive for 25 seconds.");
-                }
-            }, 1000);
-        },
-        
-        verify: function(clientCode) {
-            if (isCrashed) return;
-            lastReportTime = Date.now(); // Сброс таймера (Сайт жив)
-            
-            // Сверка исходного кода
-            if (clientCode !== originalSource) {
-                executeCrash("Detected Tamping");
-            }
-        }
-    };
-
-    // Защита самого объекта системы от перезаписи
-    return Object.freeze(system);
-})();
-</script>
-
-<!-- ========================================== -->
-<!-- ИГРОВОЙ ДВИЖОК И СВЯЗЬ С SIS               -->
+<!-- 3. ИГРОВОЙ ДВИЖОК                          -->
 <!-- ========================================== -->
 <script id="game-script">
-// --- ИНТЕГРАЦИЯ ЗАЩИТЫ В ИГРУ ---
 function getGameSourceCode() {
     const scriptElem = document.getElementById('game-script');
     if (!scriptElem) throw new Error("Script element removed");
-    return scriptElem.textContent; // Захват чистого кода скрипта
+    return scriptElem.textContent;
 }
 
-// 1. Инициализация SIS с оригинальным кодом при запуске
+// Запуск SIS
 SentinelIntegritySystem.init(getGameSourceCode());
 
-// 2. Сайт обязан отправлять код в течение каждых 10 секунд
+// Отправка отчетов каждые 10 секунд (пульс)
 setInterval(() => {
     try {
-        // Проверка: существует ли вообще система и не удалена ли функция verify
         if (typeof SentinelIntegritySystem === 'undefined' || !SentinelIntegritySystem.verify) {
             throw new Error("SIS Not Found");
         }
-        // Отправка кода
         SentinelIntegritySystem.verify(getGameSourceCode());
     } catch (e) {
-        // Если Anti-Tamper удален или сайту некому отправлять исходный код
+        // Если кто-то удалил систему защиты или ей некому отправлять код
+        if (typeof AntiCode !== 'undefined') {
+            AntiCode.authorizeChange(null, () => { // Вызовет ловушку Anti-code из-за null токена
+                 document.body.innerHTML = "FATAL";
+            });
+        }
         document.body.innerHTML = `
             <div style="display:flex; height:100vh; width:100vw; background:#000; color:#ff3333; justify-content:center; align-items:center; flex-direction:column; font-family:monospace; text-align:center;">
                 <h1 style="font-size: 40px; margin:0;">[ FATAL ERROR ]</h1>
                 <p style="font-size: 24px;">The site has been damaged!</p>
             </div>`;
-        setTimeout(() => {
-            window.location.replace("about:blank");
-        }, 2500);
+        setTimeout(() => { window.location.replace("about:blank"); }, 2500);
     }
-}, 10000); // 10 секунд
+}, 10000);
 
-
-// --- ИГРОВОЙ КОД ---
+// --- САМА ИГРА ---
 const canvas = document.getElementById('gameCanvas');
 if(canvas) {
     const ctx = canvas.getContext('2d');
     let width, height;
 
-    function resize() {
-        width = window.innerWidth;
-        height = window.innerHeight;
-        canvas.width = width;
-        canvas.height = height;
-    }
-    window.addEventListener('resize', resize);
-    resize();
+    function resize() { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; }
+    window.addEventListener('resize', resize); resize();
 
     const input = { x: 0, y: 0, attack: false, recruit: false };
     const keys = {};
-
     window.addEventListener('keydown', e => keys[e.code] = true);
     window.addEventListener('keyup', e => keys[e.code] = false);
 
@@ -318,7 +400,7 @@ if(canvas) {
     for (let i = 0; i < 40; i++) BOTS.push(new Bot((Math.random() - 0.5) * 3000, (Math.random() - 0.5) * 3000));
 
     function loop() {
-        if (!document.getElementById('gameCanvas')) return; // Остановка, если SIS удалил холст
+        if (!document.getElementById('gameCanvas')) return; // Остановка если SIS крашнул сайт
 
         ctx.fillStyle = '#8fbf73'; ctx.fillRect(0, 0, width, height);
         CAMERA.x = player.x - width / 2; CAMERA.y = player.y - height / 2;
