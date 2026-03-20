@@ -3,450 +3,759 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>игра</title>
+    <title>SVG Brawlers: Ultimate Social Update</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #2c3e50; font-family: sans-serif; touch-action: none; user-select: none; }
-        canvas { display: block; }
+        :root { --grass: #4caf50; --floor1: #795548; --floor2: #5d4037; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: var(--grass); font-family: sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
         
-        #mobile-controls { position: absolute; bottom: 0; width: 100%; height: 100%; pointer-events: none; }
-        #joystick-zone { position: absolute; bottom: 20px; left: 20px; width: 120px; height: 120px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; pointer-events: auto; display: flex; justify-content: center; align-items: center; }
-        #joystick-knob { width: 50px; height: 50px; background: rgba(255, 255, 255, 0.5); border-radius: 50%; position: absolute; }
-        .btn { position: absolute; background: rgba(46, 204, 113, 0.7); color: white; border: 2px solid white; border-radius: 50%; pointer-events: auto; display: flex; justify-content: center; align-items: center; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); cursor: pointer; }
-        .btn:active { transform: scale(0.95); }
-        #btn-attack { bottom: 30px; right: 30px; width: 70px; height: 70px; font-size: 12px; background: rgba(231, 76, 60, 0.7); }
-        #btn-recruit { bottom: 110px; right: 80px; width: 60px; height: 60px; font-size: 10px; background: rgba(52, 152, 219, 0.7); }
-        #pc-hint { position: absolute; top: 10px; left: 10px; color: white; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; pointer-events: none; }
+        /* Меню */
+        #menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; z-index: 1000; color: white; text-align: center; overflow-y: auto; padding-top: 30px; padding-bottom: 50px;}
+        #menu-coins { color: gold; font-size: 24px; font-weight: bold; margin-bottom: 20px; text-shadow: 0 0 10px gold; }
+        .char-grid { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; padding: 10px; max-width: 400px; }
+        .char-card { background: #333; padding: 15px; border-radius: 10px; text-align: center; border: 2px solid #555; width: 90px; position: relative; }
+        .char-card svg { width: 60px; height: 60px; margin-bottom: 5px; }
+        .char-card p { margin: 0 0 10px 0; font-size: 14px; font-weight: bold; }
+        .buy-btn { background: orange; color: white; border: none; padding: 5px 10px; border-radius: 5px; font-weight: bold; width: 100%; margin-top: auto; }
+        .buy-btn.unlocked { background: #4caf50; }
         
-        @media (min-width: 1024px) { #mobile-controls { display: none; } }
-        @media (max-width: 1023px) { #pc-hint { display: none; } }
+        /* Экраны состояний */
+        .screen-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 999; display: none; flex-direction: column; align-items: center; justify-content: center; color: white; font-weight: bold; text-shadow: 2px 2px 0 #000; }
+        #death-screen { background: rgba(200, 0, 0, 0.6); font-size: 30px; }
+        #hack-screen { background: rgba(150, 0, 0, 0.95); z-index: 9999; font-size: 24px; text-align: center; padding: 20px;}
+        .reload-btn { margin-top: 20px; padding: 15px 30px; background: black; color: red; border: 2px solid red; font-size: 20px; font-weight: bold; border-radius: 10px; cursor: pointer; }
+        .reload-btn:active { background: red; color: white; }
 
-        #ac-btn { top: 20px; right: 20px; bottom: auto; left: auto; width: 50px; height: 50px; font-size: 12px; background: rgba(39, 174, 96, 0.9); z-index: 100; box-shadow: 0 0 10px #2ecc71; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 5px #2ecc71; } 50% { box-shadow: 0 0 20px #2ecc71; } 100% { box-shadow: 0 0 5px #2ecc71; } }
+        /* Игровой мир */
+        #game-container { position: absolute; width: 100%; height: 100%; display: none; }
+        #world { position: absolute; transform-origin: top left; transition: transform 0.1s linear; }
+        #hud-coins { position: absolute; top: 20px; left: 20px; color: gold; font-weight: bold; font-size: 20px; z-index: 100; text-shadow: 1px 1px 2px #000; display: none; }
         
-        #ac-menu { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(25, 35, 45, 0.95); border: 2px solid #2ecc71; border-radius: 12px; width: 85%; max-width: 400px; padding: 20px; color: white; z-index: 1000; box-shadow: 0 10px 40px rgba(0,0,0,0.8); pointer-events: auto; backdrop-filter: blur(5px); }
-        .head { font-size: 18px; font-weight: bold; color: #2ecc71; text-align: center; border-bottom: 2px solid #2ecc71; padding-bottom: 10px; margin-bottom: 15px; letter-spacing: 1px; }
-        .stat { margin: 12px 0; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; }
-        .stat span { font-weight: bold; font-family: monospace; font-size: 16px; float: right; }
+        .entity { position: absolute; transform: translate(-50%, -50%); transition: opacity 0.3s; pointer-events: none; z-index: 10; }
+        .health-bar { position: absolute; top: -15px; left: -10px; width: 40px; height: 5px; background: red; border-radius: 3px; border: 1px solid black; }
+        .health-fill { height: 100%; background: #00ff00; width: 100%; border-radius: 3px; transition: width 0.2s; }
+        .emotion { position: absolute; top: -50px; left: 50%; transform: translateX(-50%); font-size: 14px; font-weight: bold; background: rgba(0,0,0,0.8); border: 2px solid white; padding: 4px 8px; border-radius: 10px; color: white; white-space: nowrap; opacity: 0; transition: opacity 0.2s; z-index: 20; }
         
-        #ac-logs { background: #0a0f14; padding: 10px; border-radius: 6px; height: 140px; overflow-y: auto; font-family: monospace; font-size: 11px; color: #aaa; margin-top: 15px; border: 1px solid #444; word-wrap: break-word; line-height: 1.4; }
-        #ac-logs span.t { color: #3498db; }
-        #ac-logs span.e { color: #e74c3c; font-weight: bold; }
+        .hand { transition: transform 0.1s ease-out; transform-origin: center; }
+        .punch-l .hand-l { transform: translateY(-20px) scale(1.3); }
+        .punch-r .hand-r { transform: translateY(-20px) scale(1.3); }
+        .grab-pose .hand-l { transform: translate(10px, -15px); }
+        .grab-pose .hand-r { transform: translate(-10px, -15px); }
+
+        .building { position: absolute; background: var(--floor1); border: 4px solid #3e2723; border-radius: 5px; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        .building.floor2-active { background: var(--floor2); border-color: #261714; }
+        .roof { position: absolute; top: -5px; left: -5px; right: -5px; bottom: -5px; background: #8d6e63; transition: opacity 0.5s; z-index: 20; border-radius: 5px; }
+        .stairs { position: absolute; background: repeating-linear-gradient(0deg, #999, #999 5px, #777 5px, #777 10px); border: 2px solid #555; }
         
-        #ac-close { margin-top: 15px; width: 100%; padding: 12px; background: #e74c3c; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        #ac-close:active { background: #c0392b; transform: scale(0.98); }
+        .furniture { position: absolute; width: 25px; height: 25px; background: #8d6e63; border-radius: 4px; border: 2px solid #5d4037; transform: translate(-50%, -50%); transition: opacity 0.2s; z-index: 5;}
+        .broken { opacity: 0; }
+
+        .projectile { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); z-index: 15; }
+        .effect { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); animation: pop 0.3s forwards; pointer-events: none; z-index: 15; }
+        @keyframes pop { 0% { opacity: 1; transform: translate(-50%, -50%) scale(0.2); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); } }
+        
+        .dmg-text { position: absolute; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; animation: floatUp 0.8s forwards; pointer-events: none; z-index: 30; transform: translate(-50%, -50%); }
+        @keyframes floatUp { 0% { margin-top: 0; opacity: 1; transform: translate(-50%, -50%) scale(1.5); } 100% { margin-top: -50px; opacity: 0; transform: translate(-50%, -50%) scale(1); } }
+
+        /* UI */
+        #ui { position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 100; display: none; }
+        #joystick-area { position: absolute; bottom: 30px; left: 30px; width: 120px; height: 120px; background: rgba(255,255,255,0.15); border-radius: 50%; pointer-events: auto; border: 2px solid rgba(255,255,255,0.3); }
+        #joystick-knob { position: absolute; width: 50px; height: 50px; background: rgba(255,255,255,0.6); border-radius: 50%; top: 35px; left: 35px; pointer-events: none; }
+        
+        .btn { position: absolute; background: rgba(0,0,0,0.6); color: white; border-radius: 50%; border: 2px solid white; font-weight: bold; display: flex; align-items: center; justify-content: center; pointer-events: auto; }
+        .btn:active { background: rgba(255,255,255,0.8); color: black; }
+        .btn.cooldown { background: red !important; opacity: 0.5; color: white; }
+        
+        #action-btn { bottom: 30px; right: 140px; width: 70px; height: 70px; background: rgba(255, 165, 0, 0.8); font-size: 14px; border-color: gold; }
+        #chat-btn { bottom: 110px; right: 140px; width: 55px; height: 55px; background: rgba(50, 150, 255, 0.8); font-size: 20px; border-color: lightblue; }
+        #ab1 { bottom: 20px; right: 60px; width: 55px; height: 55px; }
+        #ab2 { bottom: 85px; right: 35px; width: 55px; height: 55px; }
+        #ab3 { bottom: 150px; right: 20px; width: 55px; height: 55px; }
+        
+        .stunned { filter: grayscale(100%) sepia(100%) hue-rotate(-50deg) saturate(500%); animation: shake 0.2s infinite; }
+        @keyframes shake { 0% { transform: translate(calc(-50% + 2px), calc(-50% + 2px)); } 50% { transform: translate(calc(-50% - 2px), calc(-50% - 2px)); } 100% { transform: translate(calc(-50% + 2px), calc(-50% + 2px)); } }
     </style>
-
-<script id="s1">
-const anti_code = (function() {
-    const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
-    let is_auth = false;
-    let blocks = 0;
-    let logs =[];
-
-    const orig_txt = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent');
-    const orig_htm = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
-    const orig_app = Node.prototype.appendChild;
-    const orig_ins = Node.prototype.insertBefore;
-
-    function add_log(reason) {
-        blocks++;
-        const time_str = new Date().toLocaleTimeString('ru-RU');
-        logs.push(`<span class="t">[${time_str}]</span> <span class="e">[блок]</span> ${reason}`);
-        if (logs.length > 50) logs.shift();
-    }
-
-    function trap(code, reason) {
-        add_log(reason);
-        console.warn(`блок: ${reason}`);
-    }
-
-    function is_bad(node) {
-        if (!node) return false;
-        if (node.nodeName === 'SCRIPT') return true;
-        if (node.querySelectorAll && node.querySelectorAll('script').length > 0) return true;
-        return false;
-    }
-
-    Object.defineProperty(Node.prototype, 'textContent', {
-        set: function(val) {
-            if (!is_auth && (this.id === 's3' || this.id === 's2' || this.id === 's1')) {
-                trap(val, `изменение скрипта`);
-                return; 
-            }
-            orig_txt.set.call(this, val);
-        },
-        get: orig_txt.get
-    });
-
-    Object.defineProperty(Element.prototype, 'innerHTML', {
-        set: function(val) {
-            if (!is_auth && (this === document.body || this === document.documentElement || this.id === 'game')) {
-                trap(val, `перезапись ядра`);
-                return; 
-            }
-            orig_htm.set.call(this, val);
-        },
-        get: orig_htm.get
-    });
-
-    Node.prototype.appendChild = function(node) {
-        if (!is_auth && is_bad(node)) {
-            trap(node.src || node.textContent, "внедрение скрипта");
-            return node; 
-        }
-        return orig_app.call(this, node);
-    };
-
-    Node.prototype.insertBefore = function(node, ref) {
-        if (!is_auth && is_bad(node)) {
-            trap(node.src || node.textContent, "внедрение скрипта");
-            return node; 
-        }
-        return orig_ins.call(this, node, ref);
-    };
-
-    return {
-        auth: function(t, act) {
-            if (t === token) {
-                is_auth = true;
-                try { act(); } finally { is_auth = false; }
-            } else {
-                trap("fail", "неверный токен");
-            }
-        },
-        get_token: function() {
-            const t = token; delete this.get_token; return t;
-        },
-        stats: function() {
-            return { b: blocks, l: logs };
-        }
-    };
-})();
-</script>
-
-<script id="s2">
-const sys = (function() {
-    let orig = null;
-    let last = Date.now();
-    let crashed = false;
-    const sys_tok = typeof anti_code !== 'undefined' ? anti_code.get_token() : null;
-
-    function crash(reason) {
-        if (crashed) return; crashed = true;
-        if (reason === "detected") alert("detected");
-        const draw = () => {
-            document.body.innerHTML = `<div style="display:flex; height:100vh; width:100vw; background:#0a0a0a; color:#ff3333; justify-content:center; align-items:center; flex-direction:column; font-family:sans-serif; text-align:center;"><h2>${reason}</h2></div>`;
-        };
-        if (typeof anti_code !== 'undefined' && sys_tok) anti_code.auth(sys_tok, draw);
-        else draw();
-        setTimeout(() => { window.location.replace("about:blank"); }, 2500);
-    }
-
-    return Object.freeze({
-        init: function(code) {
-            orig = code; last = Date.now();
-            setInterval(() => {
-                if (crashed) return;
-                if (Date.now() - last > 25000) crash("нет ответа");
-            }, 1000);
-        },
-        verify: function(code) {
-            if (crashed) return; last = Date.now();
-            if (code !== orig) crash("detected");
-        }
-    });
-})();
-</script>
 </head>
 <body>
 
-    <div id="game">
-        <div id="ac-btn" class="btn">меню</div>
-        
-        <div id="ac-menu">
-            <div class="head">система</div>
-            <div class="stat">статус: <span style="color:#2ecc71;">ок</span></div>
-            <div class="stat">таймер: <span id="ac-time" style="color:#f1c40f;">10.0s</span></div>
-            <div class="stat">блоки: <span id="ac-blocks" style="color:#e74c3c;">0</span></div>
-            <div id="ac-logs"><span class="t">[sys]</span> старт<br></div>
-            <button id="ac-close">закрыть</button>
-        </div>
+<div id="menu">
+    <h2>SVG Brawlers</h2>
+    <div id="menu-coins">Монеты: 0 💰</div>
+    <div class="char-grid" id="char-select"></div>
+</div>
 
-        <canvas id="canvas"></canvas>
-        <div id="pc-hint">wasd - бег<br>пробел - атака<br>e - вербовка</div>
-        <div id="mobile-controls">
-            <div id="joystick-zone"><div id="joystick-knob"></div></div>
-            <div id="btn-attack" class="btn">атака</div>
-            <div id="btn-recruit" class="btn">команда</div>
-        </div>
+<div id="death-screen" class="screen-overlay">
+    <div>ВЫ ПОГИБЛИ</div>
+    <div style="font-size: 16px; margin-top: 10px;">Возрождение...</div>
+</div>
+
+<div id="hack-screen" class="screen-overlay">
+    <h1>⚠️ Hacking Detector ⚠️</h1>
+    <p>Обнаружено вмешательство в данные игры!</p>
+    <button class="reload-btn" onclick="location.reload()">Перезагрузить сайт</button>
+</div>
+
+<div id="game-container">
+    <div id="world">
+        <div id="environment"></div>
+        <div id="entities"></div>
     </div>
+</div>
 
-<script id="s3">
-function get_code() {
-    const el = document.getElementById('s3');
-    if (!el) throw new Error("del");
-    return el.textContent;
+<div id="hud-coins">0 💰</div>
+
+<div id="ui">
+    <div id="joystick-area"><div id="joystick-knob"></div></div>
+    <div class="btn" id="action-btn">Действие</div>
+    <div class="btn" id="chat-btn">💬</div>
+    <div class="btn" id="ab1">1</div>
+    <div class="btn" id="ab2">2</div>
+    <div class="btn" id="ab3">3</div>
+</div>
+
+<script>
+// ==========================================
+// ANTI-HACK SYSTEM & SERVER SIMULATION
+// ==========================================
+const ServerState = {
+    coins: 0,
+    unlocked: ['sans', 'dustdust'],
+    prices: { sans: 0, dustdust: 0, gojo: 300, sukuna: 500, saitama: 800, dustdustdust: 2000 }
+};
+
+let clientCoins = 0;
+let clientUnlocked = ['sans', 'dustdust'];
+let isHacked = false;
+
+try {
+    if (localStorage.getItem('brw_c')) ServerState.coins = parseInt(localStorage.getItem('brw_c'));
+    if (localStorage.getItem('brw_u')) ServerState.unlocked = JSON.parse(localStorage.getItem('brw_u'));
+    syncClient();
+} catch (e) {}
+
+function syncClient() {
+    clientCoins = ServerState.coins;
+    clientUnlocked =[...ServerState.unlocked];
+    updateCoinUI();
 }
 
-sys.init(get_code());
-let next_time = Date.now() + 10000;
-
-setInterval(() => {
+function saveServer() {
     try {
-        if (typeof sys === 'undefined' || !sys.verify) throw new Error("del");
-        sys.verify(get_code());
-        next_time = Date.now() + 10000;
-    } catch (e) {
-        if (typeof anti_code !== 'undefined') anti_code.auth(null, () => { document.body.innerHTML = "fatal"; });
-        document.body.innerHTML = `<div style="display:flex; height:100vh; width:100vw; background:#000; color:#ff3333; justify-content:center; align-items:center;"><h2>повреждено</h2></div>`;
-        setTimeout(() => { window.location.replace("about:blank"); }, 2500);
-    }
-}, 10000);
-
-const btn_on = document.getElementById('ac-btn');
-const menu = document.getElementById('ac-menu');
-const btn_off = document.getElementById('ac-close');
-const el_time = document.getElementById('ac-time');
-const el_blocks = document.getElementById('ac-blocks');
-const el_logs = document.getElementById('ac-logs');
-
-function toggle(state) {
-    menu.style.display = state ? 'block' : 'none';
+        localStorage.setItem('brw_c', ServerState.coins);
+        localStorage.setItem('brw_u', JSON.stringify(ServerState.unlocked));
+    } catch (e) {}
 }
 
-btn_on.addEventListener('mousedown', (e) => { e.preventDefault(); toggle(true); });
-btn_on.addEventListener('touchstart', (e) => { e.preventDefault(); toggle(true); });
-btn_off.addEventListener('mousedown', (e) => { e.preventDefault(); toggle(false); });
-btn_off.addEventListener('touchstart', (e) => { e.preventDefault(); toggle(false); });
+function serverEvent_addCoins(amount) {
+    if (amount !== 50) return triggerHack();
+    ServerState.coins += amount;
+    syncClient(); saveServer();
+}
+
+function serverEvent_buy(charKey) {
+    let price = ServerState.prices[charKey];
+    if (ServerState.coins >= price && !ServerState.unlocked.includes(charKey)) {
+        ServerState.coins -= price; ServerState.unlocked.push(charKey);
+        syncClient(); saveServer();
+        return true;
+    }
+    return false;
+}
 
 setInterval(() => {
-    if (menu.style.display === 'none') return;
-    let left = Math.max(0, (next_time - Date.now()) / 1000).toFixed(1);
-    el_time.innerText = left + 's';
+    if (isHacked) return;
+    if (clientCoins !== ServerState.coins) triggerHack();
+    if (clientUnlocked.length !== ServerState.unlocked.length) triggerHack();
+    for(let c of clientUnlocked) if (!ServerState.unlocked.includes(c)) triggerHack();
+}, 500);
+
+function triggerHack() {
+    if (isHacked) return;
+    isHacked = true; gameActive = false;
+    document.getElementById('hack-screen').style.display = 'flex';
+}
+
+function updateCoinUI() {
+    document.getElementById('menu-coins').innerText = `Монеты: ${clientCoins} 💰`;
+    document.getElementById('hud-coins').innerText = `${clientCoins} 💰`;
+}
+
+// ==========================================
+// AUDIO SYSTEM
+// ==========================================
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let actx = null;
+function playSfx(type) {
+    if (!actx) actx = new AudioContext();
+    if (actx.state === 'suspended') actx.resume();
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.connect(gain); gain.connect(actx.destination);
+    const now = actx.currentTime;
     
-    if (typeof anti_code !== 'undefined') {
-        let st = anti_code.stats();
-        el_blocks.innerText = st.b;
-        let html = '<span class="t">[sys]</span> активно<br>';
-        if (st.l.length === 0) html += '<span class="t">[sys]</span> ожидание...<br>';
-        else st.l.forEach(log => { html += log + '<br>'; });
-        if (el_logs.innerHTML !== html) {
-            el_logs.innerHTML = html;
-            el_logs.scrollTop = el_logs.scrollHeight;
-        }
+    if (type === 'punch') {
+        osc.type = 'square'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+        gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.start(now); osc.stop(now + 0.1);
+    } else if (type === 'magic') {
+        osc.type = 'sine'; osc.frequency.setValueAtTime(600, now); osc.frequency.linearRampToValueAtTime(800, now + 0.3);
+        gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+        osc.start(now); osc.stop(now + 0.3);
+    } else if (type === 'coin') {
+        osc.type = 'sine'; osc.frequency.setValueAtTime(800, now); osc.frequency.linearRampToValueAtTime(1200, now + 0.1);
+        gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.start(now); osc.stop(now + 0.1);
+    } else if (type === 'glass') { // Звук разбитого стекла
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(100, now + 0.3);
+        gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+        osc.start(now); osc.stop(now + 0.3);
     }
-}, 100);
+}
 
-const canvas = document.getElementById('canvas');
-if(canvas) {
-    const ctx = canvas.getContext('2d');
-    let w, h;
+// ==========================================
+// CHARACTER DATA
+// ==========================================
+const getSvg = (color, decor) => `
+<svg viewBox="0 0 100 100" width="50" height="50">
+    <rect x="25" y="25" width="50" height="50" rx="8" fill="${color}" stroke="#000" stroke-width="2"/>
+    ${decor}
+    <circle cx="20" cy="70" r="12" fill="${color}" stroke="#000" stroke-width="2" class="hand hand-l"/>
+    <circle cx="80" cy="70" r="12" fill="${color}" stroke="#000" stroke-width="2" class="hand hand-r"/>
+</svg>`;
 
-    function resize() { w = window.innerWidth; h = window.innerHeight; canvas.width = w; canvas.height = h; }
-    window.addEventListener('resize', resize); resize();
+const charsData = {
+    sans: { name: "Sans", speed: 2.2, hp: 400, price: ServerState.prices.sans, svg: getSvg('#2196F3', `<circle cx="40" cy="45" r="4" fill="#fff"/><circle cx="60" cy="45" r="4" fill="#0ff"/>`), ab:[{ name: "Кости", cd: 40 }, { name: "ТП", cd: 120 }, { name: "Бластер", cd: 200 }] },
+    dustdust: { name: "Dust", speed: 2.4, hp: 500, price: ServerState.prices.dustdust, svg: getSvg('#424242', `<circle cx="40" cy="45" r="4" fill="red"/><circle cx="60" cy="45" r="4" fill="red"/><path d="M 35 60 Q 50 65 65 60" stroke="#fff" stroke-width="3" fill="none"/><path d="M 25 25 L 75 25 L 50 10 Z" fill="#212121"/>`), ab:[{ name: "Кр.Кости", cd: 60 }, { name: "Психо", cd: 180 }, { name: "Хаос", cd: 250 }] },
+    gojo: { name: "Gojo", speed: 2.5, hp: 600, price: ServerState.prices.gojo, svg: getSvg('#111', `<path d="M 25 25 Q 50 5 75 25" fill="#fff"/><rect x="25" y="35" width="50" height="15" fill="#000"/>`), ab:[{ name: "Красный", cd: 80 }, { name: "Синий", cd: 100 }, { name: "Фиолет.", cd: 300 }] },
+    sukuna: { name: "Sukuna", speed: 2.3, hp: 700, price: ServerState.prices.sukuna, svg: getSvg('#fff', `<path d="M 25 25 L 40 10 L 50 25 L 60 10 L 75 25" fill="#ffb6c1"/>`), ab:[{ name: "Рассеч.", cd: 50 }, { name: "Расщеп.", cd: 90 }, { name: "Стрела", cd: 220 }] },
+    saitama: { name: "Saitama", speed: 2.8, hp: 800, price: ServerState.prices.saitama, svg: getSvg('yellow', `<circle cx="50" cy="40" r="15" fill="#ffe0bd"/>`), ab:[{ name: "Удар", cd: 30 }, { name: "Серия", cd: 120 }, { name: "Серьез.", cd: 250 }] },
+    dustdustdust: { name: "Dustx3", speed: 3.0, hp: 1500, price: ServerState.prices.dustdustdust, svg: getSvg('#2a0000', `<circle cx="40" cy="45" r="3" fill="red"/><circle cx="60" cy="45" r="3" fill="red"/><path d="M 30 60 Q 50 75 70 60" stroke="#f00" stroke-width="4" fill="none"/><path d="M 25 25 L 75 25 L 50 5 Z" fill="#000"/>`), ab:[{ name: "Волна", cd: 50 }, { name: "Взрыв", cd: 150 }, { name: "Конец", cd: 300 }] }
+};
 
-    const inp = { x: 0, y: 0, att: false, rec: false };
-    const keys = {};
-    window.addEventListener('keydown', e => keys[e.code] = true);
-    window.addEventListener('keyup', e => keys[e.code] = false);
-
-    const j_zone = document.getElementById('joystick-zone');
-    const j_knob = document.getElementById('joystick-knob');
-    let j_on = false, j_cen = { x: 0, y: 0 };
-
-    if(j_zone) {
-        j_zone.addEventListener('touchstart', e => {
-            e.preventDefault(); j_on = true;
-            let rect = j_zone.getBoundingClientRect();
-            j_cen = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-            upd_j(e.changedTouches[0]);
-        }, {passive: false});
-        j_zone.addEventListener('touchmove', e => { if (j_on) { e.preventDefault(); upd_j(e.changedTouches[0]); } }, {passive: false});
-        j_zone.addEventListener('touchend', e => { e.preventDefault(); j_on = false; j_knob.style.transform = `translate(0px, 0px)`; inp.x = 0; inp.y = 0; });
-    }
-
-    function upd_j(t) {
-        let dx = t.clientX - j_cen.x, dy = t.clientY - j_cen.y;
-        let dist = Math.sqrt(dx*dx + dy*dy), max = 35;
-        if (dist > max) { dx = (dx / dist) * max; dy = (dy / dist) * max; }
-        j_knob.style.transform = `translate(${dx}px, ${dy}px)`;
-        inp.x = dx / max; inp.y = dy / max;
-    }
-
-    const b_att = document.getElementById('btn-attack');
-    const b_rec = document.getElementById('btn-recruit');
-    if(b_att) {
-        b_att.addEventListener('touchstart', (e) => { e.preventDefault(); inp.att = true; });
-        b_att.addEventListener('touchend', (e) => { e.preventDefault(); inp.att = false; });
-        b_rec.addEventListener('touchstart', (e) => { e.preventDefault(); inp.rec = true; });
-        b_rec.addEventListener('touchend', (e) => { e.preventDefault(); inp.rec = false; });
-    }
-
-    const cam = { x: 0, y: 0 };
-    const nuts = [];
-    const bots =[];
-    const words = {
-        n: ["где я?", "иду", "команда?"],
-        a:["босс!", "каштан!", "да!"],
-        e:["цель!", "отдай!", "враг!"]
-    };
-
-    class nut {
-        constructor(x, y, vx, vy, t) {
-            this.x = x; this.y = y; this.vx = vx; this.vy = vy;
-            this.t = t; this.hp = 100; this.r = 8;
-        }
-        upd() { this.x += this.vx; this.y += this.vy; this.hp--; }
-        draw(c) {
-            c.fillStyle = '#8b4513';
-            c.beginPath(); c.arc(this.x, this.y, this.r, 0, Math.PI * 2); c.fill();
-            c.fillStyle = '#d2b48c';
-            c.beginPath(); c.arc(this.x - 2, this.y - 2, 3, 0, Math.PI * 2); c.fill();
-        }
-    }
-
-    class bot {
-        constructor(x, y, p = false) {
-            this.x = x; this.y = y; this.p = p;
-            this.r = 20; this.s = p ? 4 : 2;
-            this.t = p ? 1 : 0;
-            if (!p && Math.random() < 0.3) this.t = 2;
-            this.hp = 100; this.cd = 0;
-            this.txt = ""; this.txt_t = 0;
-        }
-        say(text) { this.txt = text; this.txt_t = 150; }
-        upd() {
-            if (this.p) {
-                let dx = 0, dy = 0;
-                if (keys['KeyW']) dy -= 1; if (keys['KeyS']) dy += 1;
-                if (keys['KeyA']) dx -= 1; if (keys['KeyD']) dx += 1;
-                if (inp.x !== 0 || inp.y !== 0) { dx = inp.x; dy = inp.y; }
-                let len = Math.sqrt(dx*dx + dy*dy);
-                if (len > 0) { this.x += (dx/len) * this.s; this.y += (dy/len) * this.s; }
-
-                if ((keys['Space'] || inp.att) && this.cd <= 0) {
-                    this.fire(dx || 1, dy || 0);
-                    this.cd = 20; this.say("лови!"); inp.att = false;
-                }
-                if (keys['KeyE'] || inp.rec) {
-                    this.rec(); keys['KeyE'] = false; inp.rec = false;
-                }
+// ==========================================
+// MENU RENDER
+// ==========================================
+function renderMenu() {
+    const charSelect = document.getElementById('char-select');
+    charSelect.innerHTML = '';
+    for (let key in charsData) {
+        let card = document.createElement('div'); card.className = 'char-card';
+        let isUnl = clientUnlocked.includes(key);
+        let btnText = isUnl ? 'ИГРАТЬ' : `${charsData[key].price} 💰`;
+        let btnClass = isUnl ? 'buy-btn unlocked' : 'buy-btn';
+        card.innerHTML = `${charsData[key].svg}<p>${charsData[key].name}</p><button class="${btnClass}">${btnText}</button>`;
+        card.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (isUnl) {
+                if (!ServerState.unlocked.includes(key)) return triggerHack();
+                startGame(key);
             } else {
-                if (this.t === 0) {
-                    if (Math.random() < 0.02) { this.vx = (Math.random() - 0.5) * 2; this.vy = (Math.random() - 0.5) * 2; }
-                    this.x += this.vx || 0; this.y += this.vy || 0;
-                    if (Math.random() < 0.005) this.say(words.n[Math.floor(Math.random() * words.n.length)]);
-                } else if (this.t === 1) {
-                    let pl = bots[0];
-                    let dist = Math.hypot(pl.x - this.x, pl.y - this.y);
-                    if (dist > 80) { this.x += (pl.x - this.x) / dist * this.s * 0.9; this.y += (pl.y - this.y) / dist * this.s * 0.9; }
-                    let en = this.find(2);
-                    if (en && Math.hypot(en.x - this.x, en.y - this.y) < 300 && this.cd <= 0) {
-                        this.fire(en.x - this.x, en.y - this.y); this.cd = 40;
+                if (serverEvent_buy(key)) { renderMenu(); playSfx('coin'); }
+                else if (clientCoins >= charsData[key].price) triggerHack();
+                else alert('Недостаточно монет!');
+            }
+        });
+        charSelect.appendChild(card);
+    }
+}
+renderMenu();
+
+// ==========================================
+// GLOBALS & WORLD
+// ==========================================
+let gameActive = false, player = null, entities = [], buildings =[], furnitures =[], projectiles =[];
+const worldSize = 1500;
+let joystick = { active: false, dx: 0, dy: 0, dirX: 0, dirY: 0, lastDirX: 1, lastDirY: 0 };
+let nextTeamId = 1;
+
+function generateWorld() {
+    const env = document.getElementById('environment');
+    env.innerHTML = ''; buildings = []; furnitures = [];
+    const bData =[ {x: 200, y: 200, w: 250, h: 200}, {x: 800, y: 150, w: 300, h: 250}, {x: 300, y: 800, w: 250, h: 300}, {x: 900, y: 900, w: 250, h: 250} ];
+
+    bData.forEach(b => {
+        let bEl = document.createElement('div'); bEl.className = 'building';
+        bEl.style.left = b.x + 'px'; bEl.style.top = b.y + 'px'; bEl.style.width = b.w + 'px'; bEl.style.height = b.h + 'px';
+        
+        let stairs = document.createElement('div'); stairs.className = 'stairs';
+        stairs.style.left = '10px'; stairs.style.top = '10px'; stairs.style.width = '50px'; stairs.style.height = '50px';
+        bEl.appendChild(stairs);
+        let roof = document.createElement('div'); roof.className = 'roof'; bEl.appendChild(roof);
+        env.appendChild(bEl);
+
+        buildings.push({ ...b, el: bEl, roofEl: roof, stairsArea: {x: b.x+10, y: b.y+10, w: 50, h: 50} });
+
+        for(let j=0; j<6; j++) {
+            let z = j < 3 ? 0 : 1;
+            let fx = b.x + 80 + Math.random() * (b.w - 100), fy = b.y + 20 + Math.random() * (b.h - 60);
+            let fEl = document.createElement('div'); fEl.className = 'furniture';
+            fEl.style.left = fx + 'px'; fEl.style.top = fy + 'px';
+            if(z===1) fEl.style.display = 'none';
+            env.appendChild(fEl);
+            furnitures.push({ id: Math.random(), x: fx, y: fy, z: z, el: fEl, broken: false, respawn: 0, type: 'furn' });
+        }
+    });
+}
+
+// ==========================================
+// ENTITY & AI
+// ==========================================
+class Entity {
+    constructor(x, y, type, isBot) {
+        this.x = x; this.y = y; this.z = 0;
+        this.type = type; this.isBot = isBot; this.data = charsData[type];
+        this.hp = this.data.hp; this.maxHp = this.data.hp; this.speed = this.data.speed;
+        this.cooldowns =[0, 0, 0]; this.stunTimer = 0; this.heldBy = null; this.holding = null;
+        this.vx = 0; this.vy = 0; this.state = 'NORMAL';
+        
+        this.teamId = isBot ? 0 : -1; this.target = null;
+        this.personality = isBot ? ['AGGRESSIVE', 'CHILL', 'SOCIAL', 'LONER'][Math.floor(Math.random()*4)] : 'PLAYER';
+        this.emotionTimer = 0; this.socialTarget = null;
+        
+        this.el = document.createElement('div'); this.el.className = 'entity';
+        this.el.innerHTML = `<div class="emotion"></div><div class="health-bar"><div class="health-fill"></div></div>${this.data.svg}`;
+        this.hpFill = this.el.querySelector('.health-fill'); this.emoEl = this.el.querySelector('.emotion');
+        document.getElementById('entities').appendChild(this.el);
+        this.updatePos();
+    }
+
+    showEmotion(emo) {
+        this.emoEl.innerText = emo; this.emoEl.style.opacity = '1'; this.emotionTimer = 120;
+    }
+
+    updatePos() {
+        if (this.heldBy) { this.x = this.heldBy.x; this.y = this.heldBy.y - 20; this.z = this.heldBy.z; }
+        this.el.style.transform = `translate(calc(${this.x}px - 50%), calc(${this.y}px - 50%))`;
+        let targetZ = player ? player.z : 0;
+        this.el.style.opacity = (!player || this.z === targetZ) ? '1' : '0.2';
+        if (this.stunTimer > 0) this.el.classList.add('stunned'); else this.el.classList.remove('stunned');
+        if (this.emotionTimer > 0) { this.emotionTimer--; if(this.emotionTimer <= 0) this.emoEl.style.opacity = '0'; }
+    }
+
+    damage(amount, attacker = null) {
+        if (this.state === 'DEAD' || isHacked) return;
+
+        // Friendly PvP Healing Logic
+        if (attacker && (attacker.personality === 'PVP_FRIENDLY' || this.personality === 'PVP_FRIENDLY')) {
+            if (this.hp - amount <= 50) {
+                this.hp = 50;
+                this.showEmotion('❤️'); attacker.showEmotion('❤️');
+                
+                // Mending both
+                this.hp = this.maxHp; attacker.hp = attacker.maxHp;
+                this.hpFill.style.width = '100%';
+                if (attacker.hpFill) attacker.hpFill.style.width = '100%';
+                
+                if (this.personality === 'PVP_FRIENDLY') this.personality = 'SOCIAL';
+                if (attacker.personality === 'PVP_FRIENDLY') attacker.personality = 'SOCIAL';
+                this.target = null; attacker.target = null;
+                return;
+            }
+        }
+
+        this.hp -= amount;
+        spawnText(this.x, this.y, amount, 'white');
+        if (amount > 40) this.stunTimer = 60;
+        
+        if (attacker && attacker !== this && this.hp > 0) {
+            this.target = attacker;
+            if (this.teamId > 0) {
+                entities.forEach(e => {
+                    if (e.teamId === this.teamId && e !== this && e.state !== 'DEAD') {
+                        e.target = attacker; if(Math.random() < 0.5) e.showEmotion('🛡️');
                     }
-                    if (Math.random() < 0.005) this.say(words.a[Math.floor(Math.random() * words.a.length)]);
-                } else if (this.t === 2) {
-                    let tg = this.find(1);
-                    if (tg) {
-                        let dist = Math.hypot(tg.x - this.x, tg.y - this.y);
-                        if (dist > 150) { this.x += (tg.x - this.x) / dist * this.s * 0.8; this.y += (tg.y - this.y) / dist * this.s * 0.8; } 
-                        else if (this.cd <= 0) { this.fire(tg.x - this.x, tg.y - this.y); this.cd = 50; }
+                });
+            }
+        }
+        
+        if (this.hp <= 0) {
+            this.hp = 0; this.state = 'DEAD'; this.stunTimer = 180;
+            if (this === player) {
+                document.getElementById('death-screen').style.display = 'flex';
+                if (this.holding) this.holding.heldBy = null;
+                setTimeout(() => {
+                    this.hp = this.maxHp; this.stunTimer = 0; this.state = 'NORMAL';
+                    this.x = worldSize/2; this.y = worldSize/2 + 200; this.z = 0;
+                    this.hpFill.style.width = '100%'; switchFloor(0);
+                    document.getElementById('death-screen').style.display = 'none';
+                }, 3000);
+            } else {
+                serverEvent_addCoins(50); spawnText(this.x, this.y, "+50 💰", "gold"); playSfx('coin');
+                setTimeout(() => {
+                    this.el.remove();
+                    if (this.holding) this.holding.heldBy = null;
+                    entities = entities.filter(e => e !== this);
+                    setTimeout(() => spawnBot(), 3000);
+                }, 3000);
+            }
+        }
+        this.hpFill.style.width = (this.hp / this.maxHp * 100) + '%';
+        if(amount > 0) playSfx('punch');
+    }
+
+    anim(type) { this.el.classList.add(type); setTimeout(() => this.el.classList.remove(type), 150); }
+
+    throwHeld(dirX, dirY) {
+        if (!this.holding) return;
+        let obj = this.holding;
+        obj.heldBy = null; this.holding = null;
+        obj.state = 'THROWN'; obj.vx = dirX * 15; obj.vy = dirY * 15;
+        this.anim('punch-r'); playSfx('magic');
+        this.el.classList.remove('grab-pose');
+    }
+
+    updateAI() {
+        if (!this.isBot || this.stunTimer > 0 || this.heldBy || this.state === 'DEAD') return;
+        
+        if (this.target && this.target.state === 'DEAD') this.target = null;
+        
+        if (this.target) {
+            let dx = this.target.x - this.x, dy = this.target.y - this.y;
+            let dist = Math.hypot(dx, dy) || 1;
+            let dirX = dx/dist, dirY = dy/dist;
+            if (this.holding) { this.throwHeld(dirX, dirY); return; }
+            if (dist > 80) this.move(dirX, dirY); else if (dist < 50) this.move(-dirX, -dirY);
+            for(let i=0; i<3; i++) if (this.cooldowns[i] <= 0 && dist < 350 && Math.random() < 0.05) castAbility(this, i, dirX, dirY);
+            return;
+        }
+
+        if (this.personality === 'AGGRESSIVE') {
+            if (Math.random() < 0.005) { this.showEmotion('🤬'); this.target = entities.find(e => e !== this && e.z === this.z && e.state !== 'DEAD'); } 
+            else this.move((Math.random()-0.5), (Math.random()-0.5));
+        } else if (this.personality === 'CHILL') {
+            if (!this.socialTarget) { let b = buildings[Math.floor(Math.random()*buildings.length)]; this.socialTarget = {x: b.x + b.w/2, y: b.y + b.h/2}; }
+            let dist = Math.hypot(this.socialTarget.x - this.x, this.socialTarget.y - this.y);
+            if (dist > 20) this.move((this.socialTarget.x - this.x)/dist, (this.socialTarget.y - this.y)/dist);
+            else if (Math.random() < 0.01) this.showEmotion('💤');
+        } else if (this.personality === 'SOCIAL') {
+            if (!this.socialTarget || this.socialTarget.state === 'DEAD') this.socialTarget = entities.find(e => e.isBot && e !== this && e.personality !== 'AGGRESSIVE' && e.z === this.z && e.state !== 'DEAD' && (e.teamId === 0 || e.teamId === this.teamId));
+            if (this.socialTarget) {
+                let dist = Math.hypot(this.socialTarget.x - this.x, this.socialTarget.y - this.y);
+                if (dist > 60) this.move((this.socialTarget.x - this.x)/dist, (this.socialTarget.y - this.y)/dist);
+                else {
+                    if (Math.random() < 0.02) {
+                        this.showEmotion('💬');
+                        if (this.teamId === 0 && this.socialTarget.teamId === 0) {
+                            this.teamId = nextTeamId++; this.socialTarget.teamId = this.teamId;
+                            this.showEmotion('🤝'); this.socialTarget.showEmotion('🤝');
+                        } else if (this.teamId > 0 && this.socialTarget.teamId === this.teamId) {
+                            if (Math.random() < 0.05) { this.showEmotion('💢'); this.socialTarget.showEmotion('💢'); this.teamId = 0; this.socialTarget.teamId = 0; }
+                        }
                     }
-                    if (Math.random() < 0.005) this.say(words.e[Math.floor(Math.random() * words.e.length)]);
                 }
+            } else this.move((Math.random()-0.5), (Math.random()-0.5));
+        } else this.move((Math.random()-0.5)*0.5, (Math.random()-0.5)*0.5);
+    }
+
+    move(dx, dy) {
+        if (this.stunTimer > 0 || this.heldBy || this.state === 'DEAD') return;
+        let nx = this.x + dx * this.speed, ny = this.y + dy * this.speed;
+        if (this.z === 0) { nx = Math.max(25, Math.min(worldSize-25, nx)); ny = Math.max(25, Math.min(worldSize-25, ny)); }
+        if (this === player) checkStairs(nx, ny);
+        this.x = nx; this.y = ny;
+    }
+}
+
+function spawnBot() {
+    let pool = Object.keys(charsData).filter(k => k !== 'dustdustdust');
+    let key = pool[Math.floor(Math.random() * pool.length)];
+    let rx = 100 + Math.random() * (worldSize - 200), ry = 100 + Math.random() * (worldSize - 200);
+    entities.push(new Entity(rx, ry, key, true));
+}
+
+// ==========================================
+// ABILITIES
+// ==========================================
+function castAbility(caster, index, dx, dy) {
+    if (caster.cooldowns[index] > 0 || caster.stunTimer > 0 || caster.heldBy || caster.state === 'DEAD') return;
+    caster.cooldowns[index] = caster.data.ab[index].cd;
+    caster.anim(Math.random() > 0.5 ? 'punch-l' : 'punch-r');
+    let type = caster.type; playSfx('magic');
+
+    if (type === 'sans') {
+        if (index===0) spawnProj(caster, dx*10, dy*10, '#fff', 15, 20);
+        if (index===1) { caster.x += dx*150; caster.y += dy*150; createEffect(caster.x, caster.y, '#0ff', 60); }
+        if (index===2) spawnBeam(caster, dx, dy, '#0ff', 50, 40);
+    } else if (type === 'dustdust') {
+        if (index===0) { spawnProj(caster, dx*8, dy*8, 'red', 20, 25); spawnProj(caster, (dx+0.2)*8, (dy-0.2)*8, 'red', 20, 25); }
+        if (index===1) { let t = getTarget(caster, 200); if(t) t.stunTimer = 120; createEffect(caster.x, caster.y, 'purple', 80); }
+        if (index===2) spawnBeam(caster, dx, dy, 'red', 70, 50);
+    } else if (type === 'gojo') {
+        if (index===0) { let t = getTarget(caster, 150); if(t){ t.vx = dx*10; t.vy = dy*10; t.state='THROWN'; t.damage(25, caster); } }
+        if (index===1) { let t = getTarget(caster, 300); if(t){ t.x = caster.x+dx*30; t.y = caster.y+dy*30; t.damage(25, caster); } }
+        if (index===2) spawnProj(caster, dx*3, dy*3, 'purple', 100, 80, true);
+    } else if (type === 'sukuna') {
+        if (index===0) { let t = getTarget(caster, 80); if(t){ t.damage(50, caster); t.stunTimer=30; createEffect(t.x, t.y, 'white', 60); } }
+        if (index===1) { spawnProj(caster, dx*12, dy*12, 'rgba(255,255,255,0.5)', 30, 30); }
+        if (index===2) { spawnProj(caster, dx*8, dy*8, 'orange', 40, 40, false, true); }
+    } else if (type === 'saitama') {
+        if (index===0) { let t = getTarget(caster, 60); if(t){ t.damage(60, caster); t.vx = dx*20; t.vy = dy*20; t.state='THROWN'; } }
+        if (index===1) { for(let i=0; i<5; i++) setTimeout(()=>spawnProj(caster, dx*(10+Math.random()*5), dy*(10+Math.random()*5), 'white', 10, 20), i*100); }
+        if (index===2) spawnBeam(caster, dx, dy, 'red', 200, 200);
+    } else if (type === 'dustdustdust') {
+        if (index===0) { for(let a=-2; a<=2; a++) { let ang = Math.atan2(dy, dx) + a*0.2; spawnProj(caster, Math.cos(ang)*12, Math.sin(ang)*12, 'darkred', 25, 30); } }
+        if (index===1) { createEffect(caster.x, caster.y, 'red', 300); playSfx('punch'); entities.forEach(e => { if(e!==caster && e.z===caster.z && Math.hypot(e.x-caster.x, e.y-caster.y)<150) e.damage(80, caster); }); }
+        if (index===2) { spawnBeam(caster, dx, dy, 'darkred', 300, 150); }
+    }
+}
+
+function getTarget(caster, range) {
+    let closest = null, minDist = range;
+    entities.forEach(e => {
+        if(e!==caster && e.z === caster.z && e.state !== 'DEAD' && e.teamId !== caster.teamId) {
+            let d = Math.hypot(e.x-caster.x, e.y-caster.y);
+            if(d < minDist) { minDist = d; closest = e; }
+        }
+    });
+    return closest;
+}
+
+function spawnProj(owner, vx, vy, color, size, dmg, pierce=false, explode=false) {
+    let el = document.createElement('div'); el.className = 'projectile';
+    el.style.width = size+'px'; el.style.height = size+'px'; el.style.background = color;
+    document.getElementById('entities').appendChild(el);
+    projectiles.push({ x: owner.x, y: owner.y, z: owner.z, vx, vy, el, owner, pierce, explode, life: pierce?200:60, size, dmg });
+}
+
+function spawnBeam(owner, dx, dy, color, width, dmg) {
+    let el = document.createElement('div');
+    el.style.position = 'absolute'; el.style.background = color; el.style.opacity = '0.8';
+    el.style.height = width+'px'; el.style.width = '1000px'; el.style.transformOrigin = 'left center';
+    el.style.left = owner.x+'px'; el.style.top = owner.y+'px';
+    let angle = Math.atan2(dy, dx) * 180 / Math.PI; el.style.transform = `translate(0, -50%) rotate(${angle}deg)`;
+    document.getElementById('entities').appendChild(el);
+    entities.forEach(e => {
+        if (e !== owner && e.z === owner.z && e.state !== 'DEAD' && e.teamId !== owner.teamId) {
+            let ex = e.x - owner.x, ey = e.y - owner.y;
+            let dot = (ex*dx + ey*dy) / Math.hypot(ex, ey);
+            if (dot > 0.95 && Math.hypot(ex, ey) < 1000) e.damage(dmg, owner);
+        }
+    });
+    setTimeout(() => el.remove(), 300);
+}
+
+function createEffect(x, y, color, size) {
+    let el = document.createElement('div'); el.className = 'effect'; el.style.width = size+'px'; el.style.height = size+'px'; el.style.border = `4px solid ${color}`;
+    el.style.left = x+'px'; el.style.top = y+'px'; document.getElementById('entities').appendChild(el);
+    setTimeout(() => el.remove(), 300);
+}
+
+function spawnText(x, y, text, color) {
+    let el = document.createElement('div'); el.className = 'dmg-text'; el.innerText = text; el.style.color = color;
+    el.style.left = x+'px'; el.style.top = y+'px'; document.getElementById('world').appendChild(el);
+    setTimeout(() => el.remove(), 800);
+}
+
+// ==========================================
+// INTERACTION (Grab & Floors)
+// ==========================================
+function checkStairs(px, py) {
+    let onStairs = buildings.some(b => px > b.stairsArea.x && px < b.stairsArea.x+b.stairsArea.w && py > b.stairsArea.y && py < b.stairsArea.y+b.stairsArea.h);
+    let btn = document.getElementById('action-btn');
+    if (onStairs && !player.holding) { btn.innerText = player.z === 0 ? 'Наверх' : 'Вниз'; btn.style.background = 'rgba(50, 200, 50, 0.8)'; } 
+    else { btn.innerText = player.holding ? 'Кинуть' : 'Взять'; btn.style.background = 'rgba(255, 165, 0, 0.8)'; }
+}
+
+document.getElementById('action-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!player || player.stunTimer > 0 || player.state === 'DEAD') return;
+    let btn = document.getElementById('action-btn');
+    if (btn.innerText === 'Наверх') { player.z = 1; switchFloor(1); return; }
+    if (btn.innerText === 'Вниз') { player.z = 0; switchFloor(0); return; }
+
+    if (player.holding) { player.throwHeld(joystick.lastDirX, joystick.lastDirY); return; }
+
+    let grabbable =[...furnitures.filter(f => !f.broken && f.z === player.z && !f.heldBy), ...entities.filter(e => e !== player && e.z === player.z && e.state === 'DEAD' && !e.heldBy)];
+    let near = grabbable.find(g => Math.hypot(g.x - player.x, g.y - player.y) < 50);
+    if (near) {
+        player.holding = near; near.heldBy = player;
+        if(near.type === 'furn') { near.broken = true; near.el.style.display = 'block'; }
+        player.el.classList.add('grab-pose');
+    }
+});
+
+function switchFloor(z) {
+    buildings.forEach(b => {
+        let inside = player.x > b.x && player.x < b.x+b.w && player.y > b.y && player.y < b.y+b.h;
+        if (z===1 && inside) { b.roofEl.style.opacity = '0'; b.el.classList.add('floor2-active'); }
+        else { b.roofEl.style.opacity = '1'; b.el.classList.remove('floor2-active'); }
+    });
+    furnitures.forEach(f => { if(!f.heldBy && !f.broken) f.el.style.display = (f.z === z) ? 'block' : 'none'; });
+}
+
+// ==========================================
+// CHAT & TOUCH CONTROLS
+// ==========================================
+let chatState = 0; const chatPhrases =["", "Го ПВП (Друг) 🛡️", "Го ПВП (СМЕРТЬ) ☠️", "Привет! 👋"];
+document.getElementById('chat-btn').addEventListener('touchstart', e => {
+    e.preventDefault(); e.stopPropagation();
+    if(!player || player.state === 'DEAD') return;
+    chatState = (chatState + 1) % chatPhrases.length;
+    if (chatState > 0) {
+        player.showEmotion(chatPhrases[chatState]);
+        entities.forEach(bot => {
+            if (bot.isBot && bot.state !== 'DEAD' && bot.z === player.z && Math.hypot(bot.x - player.x, bot.y - player.y) < 250) {
+                if (chatState === 1) { bot.personality = 'PVP_FRIENDLY'; bot.target = player; bot.showEmotion('👍'); } 
+                else if (chatState === 2) { bot.personality = 'PVP_DEATH'; bot.target = player; bot.showEmotion('☠️'); }
+                else if (chatState === 3) { bot.showEmotion('👋'); }
             }
-            if (this.cd > 0) this.cd--;
-            if (this.txt_t > 0) this.txt_t--;
-            this.x = Math.max(-2000, Math.min(2000, this.x));
-            this.y = Math.max(-2000, Math.min(2000, this.y));
+        });
+    }
+});
+
+const joyArea = document.getElementById('joystick-area');
+const joyKnob = document.getElementById('joystick-knob');
+let joyCenter = {x: 0, y: 0}, joyTouchId = null;
+
+joyArea.addEventListener('touchstart', e => {
+    e.preventDefault();
+    let touch = e.changedTouches[0]; joyTouchId = touch.identifier;
+    joyCenter = { x: joyArea.getBoundingClientRect().left + 60, y: joyArea.getBoundingClientRect().top + 60 };
+    joystick.active = true; updateJoy(touch);
+});
+
+document.addEventListener('touchmove', e => { 
+    if (joystick.active) {
+        for(let i=0; i<e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === joyTouchId) { e.preventDefault(); updateJoy(e.changedTouches[i]); }
         }
-        fire(dx, dy) {
-            let len = Math.sqrt(dx*dx + dy*dy);
-            nuts.push(new nut(this.x, this.y, (dx/len)*10, (dy/len)*10, this.t));
-        }
-        rec() {
-            for (let i = 1; i < bots.length; i++) {
-                let b = bots[i];
-                if (b.t === 0 && Math.hypot(b.x - this.x, b.y - this.y) < 150) {
-                    b.t = 1; b.say("с тобой!");
-                    b.r += 5; setTimeout(()=> b.r -=5, 200);
-                }
-            }
-        }
-        find(t) {
-            let near = null, min = Infinity;
-            for (let b of bots) {
-                if (b.t === t && b.hp > 0) {
-                    let d = Math.hypot(b.x - this.x, b.y - this.y);
-                    if (d < min) { min = d; near = b; }
-                }
-            }
-            return near;
-        }
-        draw(c) {
-            c.save(); c.translate(this.x, this.y);
-            if (this.p) c.fillStyle = '#3498db'; else if (this.t === 1) c.fillStyle = '#2ecc71';
-            else if (this.t === 2) c.fillStyle = '#e74c3c'; else c.fillStyle = '#95a5a6';
-            c.beginPath(); c.roundRect(-15, -15, 30, 30, 5); c.fill();
-            c.strokeStyle = '#2c3e50'; c.lineWidth = 2; c.stroke();
-            c.fillStyle = '#ecf0f1'; c.fillRect(-10, -10, 20, 10);
-            c.fillStyle = this.t === 2 ? '#c0392b' : '#34495e'; c.fillRect(-2, -8, 4, 6);
-            if (this.hp < 100) { c.fillStyle = 'red'; c.fillRect(-15, -25, 30, 4); c.fillStyle = 'lightgreen'; c.fillRect(-15, -25, 30 * (this.hp/100), 4); }
-            c.restore();
-            if (this.txt_t > 0) {
-                c.font = "bold 14px sans-serif"; let tw = c.measureText(this.txt).width;
-                c.fillStyle = 'rgba(255, 255, 255, 0.9)'; c.beginPath();
-                c.roundRect(this.x - tw/2 - 10, this.y - 50, tw + 20, 25, 5); c.fill();
-                c.strokeStyle = '#333'; c.stroke(); c.fillStyle = '#000';
-                c.textAlign = 'center'; c.fillText(this.txt, this.x, this.y - 33);
+    }
+}, { passive: false });
+
+document.addEventListener('touchend', e => { 
+    if (joystick.active) {
+        for(let i=0; i<e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === joyTouchId) {
+                joystick.active = false; joystick.dx = 0; joystick.dy = 0; joyKnob.style.transform = `translate(0px, 0px)`; joyTouchId = null;
             }
         }
     }
+});
 
-    const pl = new bot(0, 0, true); bots.push(pl);
-    for (let i = 0; i < 40; i++) bots.push(new bot((Math.random() - 0.5) * 3000, (Math.random() - 0.5) * 3000));
+function updateJoy(touch) {
+    let dx = touch.clientX - joyCenter.x, dy = touch.clientY - joyCenter.y;
+    let dist = Math.hypot(dx, dy);
+    if (dist > 40) { dx = (dx/dist)*40; dy = (dy/dist)*40; }
+    joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+    joystick.dx = dx / 40; joystick.dy = dy / 40;
+    if (dist > 10) { 
+        joystick.dirX = dx/dist; joystick.dirY = dy/dist; 
+        joystick.lastDirX = joystick.dirX; joystick.lastDirY = joystick.dirY; 
+    }
+}
 
-    function tick() {
-        if (!document.getElementById('canvas')) return;
+[1,2,3].forEach(i => {
+    document.getElementById('ab'+i).addEventListener('touchstart', e => {
+        e.preventDefault(); e.stopPropagation();
+        if(player) castAbility(player, i-1, joystick.lastDirX, joystick.lastDirY);
+    });
+});
 
-        ctx.fillStyle = '#8fbf73'; ctx.fillRect(0, 0, w, h);
-        cam.x = pl.x - w / 2; cam.y = pl.y - h / 2;
+// ==========================================
+// GAME LOOP
+// ==========================================
+function startGame(key) {
+    document.getElementById('menu').style.display = 'none'; document.getElementById('game-container').style.display = 'block';
+    document.getElementById('ui').style.display = 'block'; document.getElementById('hud-coins').style.display = 'block';
+    generateWorld();
+    player = new Entity(worldSize/2, worldSize/2 + 200, key, false); entities.push(player);
+    for(let i=0; i<6; i++) spawnBot();
+    gameActive = true; requestAnimationFrame(loop);
+}
 
-        ctx.save(); ctx.translate(-cam.x, -cam.y);
+function loop() {
+    if (!gameActive) return; 
+    
+    if (player && player.state !== 'DEAD' && !player.heldBy) {
+        if (joystick.active) { let len = Math.hypot(joystick.dx, joystick.dy); if (len > 0) player.move(joystick.dx/len, joystick.dy/len); }
+        if (player.z === 0) {
+            buildings.forEach(b => {
+                let inside = player.x > b.x && player.x < b.x+b.w && player.y > b.y && player.y < b.y+b.h;
+                b.roofEl.style.opacity = inside ? '0.2' : '1';
+            });
+        }
+        for(let i=1; i<=3; i++) {
+            let btn = document.getElementById('ab'+i);
+            if(player.cooldowns[i-1] > 0) { btn.classList.add('cooldown'); btn.innerText = Math.ceil(player.cooldowns[i-1]/60); }
+            else { btn.classList.remove('cooldown'); btn.innerText = i; }
+        }
+    }
 
-        ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1;
-        let sx = Math.floor(cam.x / 100) * 100, sy = Math.floor(cam.y / 100) * 100;
-        for (let i = sx; i < sx + w + 100; i += 100) { ctx.beginPath(); ctx.moveTo(i, cam.y); ctx.lineTo(i, cam.y + h); ctx.stroke(); }
-        for (let i = sy; i < sy + h + 100; i += 100) { ctx.beginPath(); ctx.moveTo(cam.x, i); ctx.lineTo(cam.x + w, i); ctx.stroke(); }
+    entities.forEach(e => {
+        for(let i=0; i<3; i++) if (e.cooldowns[i] > 0) e.cooldowns[i]--;
+        if (e.stunTimer > 0) e.stunTimer--;
+        
+        if (e.state === 'THROWN') {
+            e.x += e.vx; e.y += e.vy; e.vx *= 0.95; e.vy *= 0.95;
+            if (Math.hypot(e.vx, e.vy) < 1) { if(e.hp > 0) e.state = 'NORMAL'; }
+            
+            entities.forEach(other => {
+                if (other !== e && other.z === e.z && other.state !== 'DEAD' && Math.hypot(other.x - e.x, other.y - e.y) < 40) {
+                    other.damage(40, null); e.damage(10, null); e.vx = 0; e.vy = 0; 
+                    if(e.hp > 0) e.state = 'NORMAL'; createEffect(e.x, e.y, 'white', 50);
+                }
+            });
 
-        for (let i = nuts.length - 1; i >= 0; i--) {
-            let c = nuts[i]; c.upd(); c.draw(ctx);
-            for (let b of bots) {
-                if (b.t !== c.t && b.t !== 0 && c.t !== 0) {
-                    if (Math.hypot(b.x - c.x, b.y - c.y) < b.r + c.r) {
-                        b.hp -= 25; b.say("ай!"); c.hp = 0; break;
-                    }
+            // Выбрасывание в окно - Разлом стекла
+            if (e.z === 1) {
+                let insideAny = buildings.some(b => e.x > b.x && e.x < b.x+b.w && e.y > b.y && e.y < b.y+b.h);
+                if (!insideAny) {
+                    e.z = 0; e.damage(50, null);
+                    createEffect(e.x, e.y, 'cyan', 80); playSfx('glass'); spawnText(e.x, e.y, "Упал!", 'white');
                 }
             }
-            if (c.hp <= 0) nuts.splice(i, 1);
         }
+        e.updateAI(); e.updatePos();
+    });
 
-        for (let i = bots.length - 1; i >= 0; i--) {
-            let b = bots[i]; b.upd(); b.draw(ctx);
-            if (b.hp <= 0) {
-                bots.splice(i, 1);
-                if (!b.p) bots.push(new bot(pl.x + (Math.random()-0.5)*1000, pl.y + (Math.random()-0.5)*1000));
+    furnitures.forEach(f => {
+        if (f.state === 'THROWN') {
+            f.x += f.vx; f.y += f.vy; f.vx *= 0.95; f.vy *= 0.95;
+            f.el.style.transform = `translate(calc(${f.x}px - 50%), calc(${f.y}px - 50%))`;
+            if (Math.hypot(f.vx, f.vy) < 1) { f.state = 'NORMAL'; f.el.classList.add('broken'); f.respawn = 300; f.el.style.display = 'none'; }
+            
+            entities.forEach(e => {
+                if (e.z === f.z && e.state !== 'DEAD' && Math.hypot(e.x - f.x, e.y - f.y) < 30) {
+                    e.damage(30, null); f.vx = 0; f.vy = 0; f.state = 'NORMAL'; f.el.classList.add('broken'); f.respawn = 300; f.el.style.display = 'none';
+                    createEffect(f.x, f.y, 'brown', 50); playSfx('punch');
+                }
+            });
+            
+            // Мебель выбросили в окно
+            if (f.z === 1) {
+                let insideAny = buildings.some(b => f.x > b.x && f.x < b.x+b.w && f.y > b.y && f.y < b.y+b.h);
+                if (!insideAny) { 
+                    f.z = 0; f.vx=0; f.vy=0; f.state='NORMAL'; f.el.classList.add('broken'); f.respawn=300; f.el.style.display='none'; 
+                    createEffect(f.x, f.y, 'cyan', 80); playSfx('glass');
+                }
             }
+        } else if (f.broken && !f.heldBy) {
+            f.respawn--; if (f.respawn <= 0) { f.broken = false; f.el.classList.remove('broken'); if(f.z === player.z) f.el.style.display = 'block'; }
+        } else if (f.heldBy) {
+            f.x = f.heldBy.x; f.y = f.heldBy.y - 30; f.z = f.heldBy.z;
+            f.el.style.transform = `translate(calc(${f.x}px - 50%), calc(${f.y}px - 50%))`;
         }
+    });
 
-        ctx.beginPath(); ctx.arc(pl.x, pl.y, 150, 0, Math.PI*2);
-        ctx.strokeStyle = 'rgba(52, 152, 219, 0.2)'; ctx.lineWidth = 2; ctx.stroke();
-        ctx.restore();
-
-        requestAnimationFrame(tick);
+    for(let i=projectiles.length-1; i>=0; i--) {
+        let p = projectiles[i];
+        p.x += p.vx; p.y += p.vy; p.life--; p.el.style.transform = `translate(calc(${p.x}px - 50%), calc(${p.y}px - 50%))`;
+        let hit = false;
+        entities.forEach(e => {
+            if (e !== p.owner && e.z === p.z && e.state !== 'DEAD' && e.teamId !== p.owner.teamId && Math.hypot(e.x - p.x, e.y - p.y) < (p.size/2 + 20)) {
+                e.damage(p.dmg, p.owner); hit = true;
+                if(p.explode) { createEffect(p.x, p.y, 'orange', 100); entities.forEach(e2=>{if(e2.state !== 'DEAD' && Math.hypot(e2.x-p.x,e2.y-p.y)<100) e2.damage(40, p.owner);}); }
+            }
+        });
+        if (p.life <= 0 || (hit && !p.pierce)) { p.el.remove(); projectiles.splice(i, 1); }
     }
-    tick();
+
+    if (player) {
+        let sw = window.innerWidth, sh = window.innerHeight;
+        document.getElementById('world').style.transform = `translate(${sw/2 - player.x}px, ${sh/2 - player.y}px)`;
+    }
+
+    requestAnimationFrame(loop);
 }
 </script>
 </body>
-</html>
+    </html>
