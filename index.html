@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SVG Brawlers: Cinematic Boss Update</title>
+    <title>SVG Brawlers: Ultimate Destruction</title>
     <style>
         :root { --grass: #3e8e41; --floor1: #5d4037; --floor2: #4e342e; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: var(--grass); font-family: sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
@@ -40,6 +40,7 @@
         .grab-pose .hand-l { transform: translate(10px, -15px); }
         .grab-pose .hand-r { transform: translate(-10px, -15px); }
 
+        /* Здания и Разрушения */
         .building { position: absolute; background: var(--floor1); border: 4px solid #3e2723; border-radius: 5px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
         .building.floor2-active { background: var(--floor2); border-color: #261714; }
         .roof { position: absolute; top: -5px; left: -5px; right: -5px; bottom: -5px; background: #6d4c41; transition: opacity 0.5s; z-index: 20; border-radius: 5px; }
@@ -47,7 +48,15 @@
         .furniture { position: absolute; width: 25px; height: 25px; background: #8d6e63; border-radius: 4px; border: 2px solid #5d4037; transform: translate(-50%, -50%); transition: opacity 0.2s; z-index: 5;}
         .broken { opacity: 0; }
 
-        /* Улучшенные эффекты */
+        .building.destroyed { animation: collapseBuilding 1.5s forwards; pointer-events: none; }
+        @keyframes collapseBuilding {
+            0% { transform: scale(1) rotate(0deg); opacity: 1; filter: brightness(1); }
+            20% { transform: scale(0.95) rotate(-2deg); filter: brightness(2) sepia(1) hue-rotate(-50deg); }
+            50% { transform: scale(0.9) translateY(10px) rotate(2deg); opacity: 0.8; filter: brightness(0.5); }
+            100% { transform: scale(0.8) translateY(50px) rotate(-1deg); opacity: 0; }
+        }
+
+        /* Эффекты */
         .projectile { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); z-index: 15; box-shadow: 0 0 15px currentColor; }
         .effect { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); animation: pop 0.4s ease-out forwards; pointer-events: none; z-index: 15; box-shadow: inset 0 0 30px currentColor, 0 0 30px currentColor; }
         @keyframes pop { 0% { opacity: 1; transform: translate(-50%, -50%) scale(0.1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); } }
@@ -58,7 +67,7 @@
         .dmg-text { position: absolute; font-weight: bold; font-size: 20px; text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; animation: floatUp 0.8s forwards; pointer-events: none; z-index: 30; transform: translate(-50%, -50%); }
         @keyframes floatUp { 0% { margin-top: 0; opacity: 1; transform: translate(-50%, -50%) scale(1.5); } 100% { margin-top: -60px; opacity: 0; transform: translate(-50%, -50%) scale(1); } }
 
-        /* UI и Чат Меню */
+        /* UI */
         #ui { position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 100; display: none; }
         #joystick-area { position: absolute; bottom: 30px; left: 30px; width: 120px; height: 120px; background: rgba(255,255,255,0.15); border-radius: 50%; pointer-events: auto; border: 2px solid rgba(255,255,255,0.3); }
         #joystick-knob { position: absolute; width: 50px; height: 50px; background: rgba(255,255,255,0.8); border-radius: 50%; top: 35px; left: 35px; pointer-events: none; box-shadow: 0 0 10px rgba(0,0,0,0.5);}
@@ -67,6 +76,7 @@
         .btn:active { background: rgba(255,255,255,0.9); color: black; }
         .btn.cooldown { background: red !important; opacity: 0.5; color: white; }
         
+        #menu-btn { top: 20px; right: 20px; width: 80px; height: 40px; background: rgba(200, 0, 0, 0.8); border-radius: 10px; font-size: 14px; border-color: #ffaaaa; }
         #action-btn { bottom: 30px; right: 140px; width: 70px; height: 70px; background: rgba(255, 165, 0, 0.9); font-size: 14px; border-color: gold; }
         #chat-btn { bottom: 120px; right: 140px; width: 55px; height: 55px; background: rgba(50, 150, 255, 0.9); font-size: 20px; border-color: lightblue; }
         #ab1 { bottom: 20px; right: 60px; width: 55px; height: 55px; }
@@ -111,6 +121,7 @@
 
 <div id="ui">
     <div id="joystick-area"><div id="joystick-knob"></div></div>
+    <div class="btn" id="menu-btn">МЕНЮ</div>
     <div class="btn" id="action-btn">Действие</div>
     <div class="btn" id="chat-btn">💬</div>
     <div id="chat-menu">
@@ -165,7 +176,7 @@ function triggerHack() { if (isHacked) return; isHacked = true; gameActive = fal
 function updateCoinUI() { document.getElementById('menu-coins').innerText = `Монеты: ${clientCoins} 💰`; document.getElementById('hud-coins').innerText = `${clientCoins} 💰`; }
 
 // ==========================================
-// CAMERA DYNAMICS (ZOOM & SHAKE)
+// CAMERA DYNAMICS
 // ==========================================
 let camScale = 1.0, targetCamScale = 1.0;
 let camShake = 0;
@@ -180,43 +191,18 @@ function playSfx(type) {
     const osc = actx.createOscillator(), gain = actx.createGain();
     osc.connect(gain); gain.connect(actx.destination); const now = actx.currentTime;
     
-    if (type === 'punch') {
-        osc.type = 'square'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
-        gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-        osc.start(now); osc.stop(now + 0.1);
-    } else if (type === 'magic') {
-        osc.type = 'sine'; osc.frequency.setValueAtTime(600, now); osc.frequency.linearRampToValueAtTime(800, now + 0.3);
-        gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
-        osc.start(now); osc.stop(now + 0.3);
-    } else if (type === 'coin') {
-        osc.type = 'sine'; osc.frequency.setValueAtTime(800, now); osc.frequency.linearRampToValueAtTime(1200, now + 0.1);
-        gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-        osc.start(now); osc.stop(now + 0.1);
-    } else if (type === 'glass') {
-        osc.type = 'triangle'; osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(100, now + 0.3);
-        gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-        osc.start(now); osc.stop(now + 0.3);
-    } else if (type === 'explosion') {
-        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, now); osc.frequency.exponentialRampToValueAtTime(10, now + 0.8);
-        gain.gain.setValueAtTime(0.8, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
-        osc.start(now); osc.stop(now + 0.8);
-    } else if (type === 'beam') {
-        osc.type = 'square'; osc.frequency.setValueAtTime(50, now); osc.frequency.linearRampToValueAtTime(200, now + 0.5);
-        gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-        osc.start(now); osc.stop(now + 0.5);
-    }
+    if (type === 'punch') { osc.type = 'square'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(40, now + 0.1); gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1); osc.start(now); osc.stop(now + 0.1);
+    } else if (type === 'magic') { osc.type = 'sine'; osc.frequency.setValueAtTime(600, now); osc.frequency.linearRampToValueAtTime(800, now + 0.3); gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.3); osc.start(now); osc.stop(now + 0.3);
+    } else if (type === 'coin') { osc.type = 'sine'; osc.frequency.setValueAtTime(800, now); osc.frequency.linearRampToValueAtTime(1200, now + 0.1); gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1); osc.start(now); osc.stop(now + 0.1);
+    } else if (type === 'glass') { osc.type = 'triangle'; osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(100, now + 0.3); gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3); osc.start(now); osc.stop(now + 0.3);
+    } else if (type === 'explosion') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, now); osc.frequency.exponentialRampToValueAtTime(10, now + 0.8); gain.gain.setValueAtTime(0.8, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8); osc.start(now); osc.stop(now + 0.8);
+    } else if (type === 'beam') { osc.type = 'square'; osc.frequency.setValueAtTime(50, now); osc.frequency.linearRampToValueAtTime(200, now + 0.5); gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5); osc.start(now); osc.stop(now + 0.5); }
 }
 
 // ==========================================
 // CHARACTER DATA
 // ==========================================
-const getSvg = (color, decor) => `
-<svg viewBox="0 0 100 100" width="50" height="50">
-    <rect x="25" y="25" width="50" height="50" rx="8" fill="${color}" stroke="#000" stroke-width="2"/>
-    ${decor}
-    <circle cx="20" cy="70" r="12" fill="${color}" stroke="#000" stroke-width="2" class="hand hand-l"/>
-    <circle cx="80" cy="70" r="12" fill="${color}" stroke="#000" stroke-width="2" class="hand hand-r"/>
-</svg>`;
+const getSvg = (color, decor) => `<svg viewBox="0 0 100 100" width="50" height="50"><rect x="25" y="25" width="50" height="50" rx="8" fill="${color}" stroke="#000" stroke-width="2"/>${decor}<circle cx="20" cy="70" r="12" fill="${color}" stroke="#000" stroke-width="2" class="hand hand-l"/><circle cx="80" cy="70" r="12" fill="${color}" stroke="#000" stroke-width="2" class="hand hand-r"/></svg>`;
 
 const charsData = {
     sans: { name: "Sans", speed: 2.2, hp: 400, price: ServerState.prices.sans, svg: getSvg('#2196F3', `<circle cx="40" cy="45" r="4" fill="#fff"/><circle cx="60" cy="45" r="4" fill="#0ff"/>`), ab:[{ name: "Кости", cd: 40 }, { name: "ТП", cd: 120 }, { name: "Бластер", cd: 200 }] },
@@ -258,7 +244,7 @@ let nextTeamId = 1;
 
 function generateWorld() {
     const env = document.getElementById('environment');
-    env.innerHTML = ''; buildings = []; furnitures =[];
+    env.innerHTML = ''; buildings =[]; furnitures =[];
     const bData =[ {x: 300, y: 300, w: 300, h: 250}, {x: 1200, y: 200, w: 400, h: 300}, {x: 400, y: 1200, w: 300, h: 400}, {x: 1300, y: 1300, w: 300, h: 300} ];
 
     bData.forEach(b => {
@@ -269,7 +255,7 @@ function generateWorld() {
         bEl.appendChild(stairs);
         let roof = document.createElement('div'); roof.className = 'roof'; bEl.appendChild(roof);
         env.appendChild(bEl);
-        buildings.push({ ...b, el: bEl, roofEl: roof, stairsArea: {x: b.x+10, y: b.y+10, w: 50, h: 50} });
+        buildings.push({ ...b, el: bEl, roofEl: roof, stairsArea: {x: b.x+10, y: b.y+10, w: 50, h: 50}, destroyed: false });
 
         for(let j=0; j<8; j++) {
             let z = j < 4 ? 0 : 1;
@@ -308,16 +294,18 @@ class Entity {
     updatePos() {
         if (this.heldBy) { this.x = this.heldBy.x; this.y = this.heldBy.y - 20; this.z = this.heldBy.z; }
         this.el.style.transform = `translate(calc(${this.x}px - 50%), calc(${this.y}px - 50%))`;
-        let targetZ = player ? player.z : 0;
-        this.el.style.opacity = (!player || this.z === targetZ) ? '1' : '0.2';
-        if (this.stunTimer > 0) this.el.classList.add('stunned'); else this.el.classList.remove('stunned');
-        if (this.emotionTimer > 0) { this.emotionTimer--; if(this.emotionTimer <= 0) this.emoEl.style.opacity = '0'; }
+        
+        if (this.state !== 'DEAD') {
+            let targetZ = player ? player.z : 0;
+            this.el.style.opacity = (!player || this.z === targetZ) ? '1' : '0.2';
+            if (this.stunTimer > 0) this.el.classList.add('stunned'); else this.el.classList.remove('stunned');
+            if (this.emotionTimer > 0) { this.emotionTimer--; if(this.emotionTimer <= 0) this.emoEl.style.opacity = '0'; }
+        }
     }
 
     damage(amount, attacker = null) {
         if (this.state === 'DEAD' || isHacked) return;
 
-        // Логика дружественного ПВП
         if (attacker && (attacker.personality === 'PVP_FRIENDLY' || this.personality === 'PVP_FRIENDLY')) {
             if (this.hp - amount <= 50) {
                 this.hp = 50; this.showEmotion('❤️'); attacker.showEmotion('❤️');
@@ -329,8 +317,8 @@ class Entity {
             }
         }
 
-        this.hp -= amount; spawnText(this.x, this.y, amount, 'white');
-        if (amount > 80) this.stunTimer = 60; // Тяжелый удар оглушает
+        this.hp -= amount; spawnText(this.x, this.y, amount >= 999999 ? "DEATH" : amount, 'white');
+        if (amount > 80) this.stunTimer = 60;
         
         if (attacker && attacker !== this && this.hp > 0) {
             this.target = attacker;
@@ -344,26 +332,44 @@ class Entity {
         }
         
         if (this.hp <= 0) {
-            this.hp = 0; this.state = 'DEAD'; this.stunTimer = 180;
-            if (this === player) {
-                document.getElementById('death-screen').style.display = 'flex';
-                if (this.holding) this.holding.heldBy = null;
-                setTimeout(() => {
-                    this.hp = this.maxHp; this.stunTimer = 0; this.state = 'NORMAL';
-                    this.x = worldSize/2; this.y = worldSize/2 + 200; this.z = 0;
-                    this.hpFill.style.width = '100%'; switchFloor(0); document.getElementById('death-screen').style.display = 'none';
-                }, 3000);
-            } else {
-                serverEvent_addCoins(50); spawnText(this.x, this.y, "+50 💰", "gold"); playSfx('coin');
-                setTimeout(() => {
-                    this.el.remove(); if (this.holding) this.holding.heldBy = null;
-                    entities = entities.filter(e => e !== this);
+            this.hp = 0; 
+            if (this.state !== 'DEAD') {
+                this.state = 'DEAD'; this.stunTimer = 999999;
+                
+                // Превращаем в ТРУП (не исчезает!)
+                this.el.style.filter = 'brightness(0.3) grayscale(1)';
+                this.el.style.zIndex = '2'; // Тела лежат ниже живых
+                this.el.querySelector('.health-bar').style.display = 'none';
+                this.el.querySelector('.emotion').style.display = 'none';
+
+                if (this === player) {
+                    document.getElementById('death-screen').style.display = 'flex';
+                    if (this.holding) { this.holding.heldBy = null; this.holding = null; }
+                    if (this.heldBy) { this.heldBy.holding = null; this.heldBy = null; }
+                    
+                    setTimeout(() => {
+                        this.hp = this.maxHp; this.stunTimer = 0; this.state = 'NORMAL';
+                        this.x = worldSize/2; this.y = worldSize/2 + 200; this.z = 0;
+                        this.hpFill.style.width = '100%'; switchFloor(0); 
+                        
+                        this.el.style.filter = 'none';
+                        this.el.style.zIndex = '10';
+                        this.el.querySelector('.health-bar').style.display = 'block';
+                        this.el.querySelector('.emotion').style.display = 'block';
+                        document.getElementById('death-screen').style.display = 'none';
+                    }, 3000);
+                } else {
+                    serverEvent_addCoins(50); spawnText(this.x, this.y, "+50 💰", "gold"); playSfx('coin');
+                    if (this.holding) { this.holding.heldBy = null; this.holding = null; }
+                    if (this.heldBy) { this.heldBy.holding = null; this.heldBy = null; }
+                    
+                    // Бот остается как тело, но мы спавним нового на карте
                     setTimeout(() => spawnBot(), 3000);
-                }, 3000);
+                }
             }
         }
-        this.hpFill.style.width = (this.hp / this.maxHp * 100) + '%';
-        if(amount > 0) playSfx('punch');
+        if (this.hp > 0) this.hpFill.style.width = (this.hp / this.maxHp * 100) + '%';
+        if (amount > 0 && amount < 999999) playSfx('punch');
     }
 
     anim(type) { this.el.classList.add(type); setTimeout(() => this.el.classList.remove(type), 150); }
@@ -391,9 +397,9 @@ class Entity {
             if (Math.random() < 0.005) { this.showEmotion('🤬'); this.target = entities.find(e => e !== this && e.z === this.z && e.state !== 'DEAD'); } 
             else this.move((Math.random()-0.5), (Math.random()-0.5));
         } else if (this.personality === 'CHILL') {
-            if (!this.socialTarget) { let b = buildings[Math.floor(Math.random()*buildings.length)]; this.socialTarget = {x: b.x + b.w/2, y: b.y + b.h/2}; }
-            let dist = Math.hypot(this.socialTarget.x - this.x, this.socialTarget.y - this.y);
-            if (dist > 20) this.move((this.socialTarget.x - this.x)/dist, (this.socialTarget.y - this.y)/dist); else if (Math.random() < 0.01) this.showEmotion('💤');
+            if (!this.socialTarget) { let bs = buildings.filter(b=>!b.destroyed); if(bs.length>0) {let b = bs[Math.floor(Math.random()*bs.length)]; this.socialTarget = {x: b.x + b.w/2, y: b.y + b.h/2}; }}
+            if(this.socialTarget) { let dist = Math.hypot(this.socialTarget.x - this.x, this.socialTarget.y - this.y);
+            if (dist > 20) this.move((this.socialTarget.x - this.x)/dist, (this.socialTarget.y - this.y)/dist); else if (Math.random() < 0.01) this.showEmotion('💤'); }
         } else if (this.personality === 'SOCIAL') {
             if (!this.socialTarget || this.socialTarget.state === 'DEAD') this.socialTarget = entities.find(e => e.isBot && e !== this && e.personality !== 'AGGRESSIVE' && e.z === this.z && e.state !== 'DEAD' && (e.teamId === 0 || e.teamId === this.teamId));
             if (this.socialTarget) {
@@ -430,7 +436,7 @@ function spawnBot() {
 }
 
 // ==========================================
-// ABILITIES & EFFECTS (Cinematic)
+// ABILITIES & EFFECTS (Destruction Beam)
 // ==========================================
 function castAbility(caster, index, dx, dy) {
     if (caster.cooldowns[index] > 0 || caster.stunTimer > 0 || caster.heldBy || caster.state === 'DEAD') return;
@@ -459,20 +465,18 @@ function castAbility(caster, index, dx, dy) {
         if (index===1) { for(let i=0; i<5; i++) setTimeout(()=>spawnProj(caster, dx*(15+Math.random()*5), dy*(15+Math.random()*5), 'white', 15, 30), i*100); }
         if (index===2) { spawnBeam(caster, dx, dy, 'red', 250, 300); camShake = 20; }
     } else if (type === 'dustdustdust') {
-        // УЛЬТИМАТИВНЫЙ БОСС
-        if (index===0) { 
-            for(let a=-2; a<=2; a++) { let ang = Math.atan2(dy, dx) + a*0.2; spawnProj(caster, Math.cos(ang)*15, Math.sin(ang)*15, 'darkred', 40, 100, true); } 
-        }
+        if (index===0) { for(let a=-2; a<=2; a++) { let ang = Math.atan2(dy, dx) + a*0.2; spawnProj(caster, Math.cos(ang)*15, Math.sin(ang)*15, 'darkred', 40, 100, true); } }
         if (index===1) { 
             if(caster === player) { targetCamScale = 0.4; setTimeout(() => targetCamScale = 1.0, 1500); }
-            camShake = 30; playSfx('explosion');
-            createEffect(caster.x, caster.y, 'rgba(255,0,0,0.8)', 600); 
+            camShake = 30; playSfx('explosion'); createEffect(caster.x, caster.y, 'rgba(255,0,0,0.8)', 600); 
             entities.forEach(e => { if(e!==caster && e.z===caster.z && Math.hypot(e.x-caster.x, e.y-caster.y)<300) { e.damage(250, caster); e.vx = (e.x-caster.x)*0.1; e.vy = (e.y-caster.y)*0.1; e.state='THROWN';} }); 
         }
         if (index===2) { 
+            // МАССИВНЫЙ ЛУЧ (Уничтожает здания и ваншотает)
             if(caster === player) { targetCamScale = 0.5; setTimeout(() => targetCamScale = 1.0, 1000); }
-            camShake = 40; playSfx('beam');
-            spawnBeam(caster, dx, dy, 'linear-gradient(to bottom, transparent, red, darkred, black, darkred, red, transparent)', 500, 350, true); 
+            camShake = 50; playSfx('beam');
+            // damage: 999999, destroyEnv: true
+            spawnBeam(caster, dx, dy, 'linear-gradient(to bottom, transparent, red, darkred, black, darkred, red, transparent)', 800, 999999, true, true); 
         }
     }
 }
@@ -494,23 +498,50 @@ function spawnProj(owner, vx, vy, color, size, dmg, pierce=false, explode=false)
     projectiles.push({ x: owner.x, y: owner.y, z: owner.z, vx, vy, el, owner, pierce, explode, life: pierce?150:60, size, dmg });
 }
 
-function spawnBeam(owner, dx, dy, background, width, dmg, isCSSGradient=false) {
+function spawnBeam(owner, dx, dy, background, width, dmg, isCSSGradient=false, destroyEnv=false) {
     let el = document.createElement('div'); el.className = 'beam';
-    el.style.height = width+'px'; el.style.width = '2000px'; el.style.transformOrigin = 'left center';
+    el.style.height = width+'px'; el.style.width = '2500px'; el.style.transformOrigin = 'left center';
     el.style.left = owner.x+'px'; el.style.top = owner.y+'px';
     if(isCSSGradient) el.style.background = background; else el.style.backgroundColor = background;
-    el.style.color = isCSSGradient ? 'red' : background; // для свечения (box-shadow)
+    el.style.color = isCSSGradient ? 'red' : background; 
     
     let angle = Math.atan2(dy, dx) * 180 / Math.PI; el.style.transform = `translate(0, -50%) rotate(${angle}deg)`;
     document.getElementById('entities').appendChild(el);
     
+    // Урон сущностям
     entities.forEach(e => {
         if (e !== owner && e.z === owner.z && e.state !== 'DEAD' && e.teamId !== owner.teamId) {
             let ex = e.x - owner.x, ey = e.y - owner.y;
             let dot = (ex*dx + ey*dy) / Math.hypot(ex, ey);
-            if (dot > 0.95 && Math.hypot(ex, ey) < 2000) e.damage(dmg, owner);
+            if (dot > 0.92 && Math.hypot(ex, ey) < 2500) e.damage(dmg, owner);
         }
     });
+
+    // Разрушение зданий и мебели
+    if (destroyEnv) {
+        buildings.forEach(b => {
+            if (b.destroyed) return;
+            let bx = b.x + b.w/2, by = b.y + b.h/2;
+            let ex = bx - owner.x, ey = by - owner.y;
+            let dot = (ex*dx + ey*dy) / Math.hypot(ex, ey);
+            if (dot > 0.85 && Math.hypot(ex, ey) < 2500) {
+                b.destroyed = true;
+                b.el.classList.add('destroyed');
+                b.roofEl.style.opacity = '0';
+                camShake = Math.max(camShake, 40);
+                playSfx('explosion');
+            }
+        });
+        furnitures.forEach(f => {
+            if (f.broken) return;
+            let ex = f.x - owner.x, ey = f.y - owner.y;
+            let dot = (ex*dx + ey*dy) / Math.hypot(ex, ey);
+            if (dot > 0.92 && Math.hypot(ex, ey) < 2500) {
+                f.broken = true; f.el.classList.add('broken'); f.respawn = 999999;
+            }
+        });
+    }
+
     setTimeout(() => el.remove(), 400);
 }
 
@@ -528,10 +559,25 @@ function spawnText(x, y, text, color) {
 }
 
 // ==========================================
-// INTERACTION & FLOORS
+// MENU BUTTON & INTERACTION
 // ==========================================
+document.getElementById('menu-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    gameActive = false;
+    document.getElementById('game-container').style.display = 'none';
+    document.getElementById('ui').style.display = 'none';
+    document.getElementById('hud-coins').style.display = 'none';
+    document.getElementById('menu').style.display = 'flex';
+    
+    // Полная очистка мира, чтобы при повторном запуске всё было с нуля
+    document.getElementById('entities').innerHTML = '';
+    document.getElementById('environment').innerHTML = '';
+    entities = []; buildings =[]; furnitures = []; projectiles =[]; player = null;
+    renderMenu();
+});
+
 function checkStairs(px, py) {
-    let onStairs = buildings.some(b => px > b.stairsArea.x && px < b.stairsArea.x+b.stairsArea.w && py > b.stairsArea.y && py < b.stairsArea.y+b.stairsArea.h);
+    let onStairs = buildings.some(b => !b.destroyed && px > b.stairsArea.x && px < b.stairsArea.x+b.stairsArea.w && py > b.stairsArea.y && py < b.stairsArea.y+b.stairsArea.h);
     let btn = document.getElementById('action-btn');
     if (onStairs && !player.holding) { btn.innerText = player.z === 0 ? 'Наверх' : 'Вниз'; btn.style.background = 'rgba(50, 200, 50, 0.9)'; } 
     else { btn.innerText = player.holding ? 'Кинуть' : 'Взять'; btn.style.background = 'rgba(255, 165, 0, 0.9)'; }
@@ -553,6 +599,7 @@ document.getElementById('action-btn').addEventListener('touchstart', (e) => {
 
 function switchFloor(z) {
     buildings.forEach(b => {
+        if(b.destroyed) return;
         let inside = player.x > b.x && player.x < b.x+b.w && player.y > b.y && player.y < b.y+b.h;
         if (z===1 && inside) { b.roofEl.style.opacity = '0'; b.el.classList.add('floor2-active'); }
         else { b.roofEl.style.opacity = '1'; b.el.classList.remove('floor2-active'); }
@@ -561,7 +608,7 @@ function switchFloor(z) {
 }
 
 // ==========================================
-// CHAT MENU & TOUCH
+// CHAT MENU & TOUCH CONTROLS
 // ==========================================
 const chatMenu = document.getElementById('chat-menu');
 document.getElementById('chat-btn').addEventListener('touchstart', e => {
@@ -570,7 +617,6 @@ document.getElementById('chat-btn').addEventListener('touchstart', e => {
     chatMenu.style.display = chatMenu.style.display === 'grid' ? 'none' : 'grid';
 });
 
-// Клик вне меню чата закрывает его
 document.addEventListener('touchstart', e => {
     if(chatMenu.style.display === 'grid' && !e.target.closest('#chat-menu') && !e.target.closest('#chat-btn')) {
         chatMenu.style.display = 'none';
@@ -639,7 +685,7 @@ function updateJoy(touch) {
 });
 
 // ==========================================
-// GAME LOOP (Camera & Logic)
+// GAME LOOP (Physics & Camera)
 // ==========================================
 function startGame(key) {
     document.getElementById('menu').style.display = 'none'; document.getElementById('game-container').style.display = 'block';
@@ -653,18 +699,18 @@ function startGame(key) {
 function loop() {
     if (!gameActive) return; 
     
-    // Плавная камера и тряска
     camScale += (targetCamScale - camScale) * 0.1;
     let sx = 0, sy = 0;
     if (camShake > 0.5) {
         sx = (Math.random() - 0.5) * camShake; sy = (Math.random() - 0.5) * camShake;
-        camShake *= 0.85; // затухание тряски
+        camShake *= 0.85;
     }
 
     if (player && player.state !== 'DEAD' && !player.heldBy) {
         if (joystick.active) { let len = Math.hypot(joystick.dx, joystick.dy); if (len > 0) player.move(joystick.dx/len, joystick.dy/len); }
         if (player.z === 0) {
             buildings.forEach(b => {
+                if(b.destroyed) return;
                 let inside = player.x > b.x && player.x < b.x+b.w && player.y > b.y && player.y < b.y+b.h;
                 b.roofEl.style.opacity = inside ? '0.2' : '1';
             });
@@ -682,24 +728,28 @@ function loop() {
         
         if (e.state === 'THROWN') {
             e.x += e.vx; e.y += e.vy; e.vx *= 0.95; e.vy *= 0.95;
-            if (Math.hypot(e.vx, e.vy) < 1) { if(e.hp > 0) e.state = 'NORMAL'; }
+            if (Math.hypot(e.vx, e.vy) < 1) { if(e.hp > 0) e.state = 'NORMAL'; else e.state = 'DEAD'; }
             
             entities.forEach(other => {
                 if (other !== e && other.z === e.z && other.state !== 'DEAD' && Math.hypot(other.x - e.x, other.y - e.y) < 40) {
                     other.damage(40, null); e.damage(10, null); e.vx = 0; e.vy = 0; 
-                    if(e.hp > 0) e.state = 'NORMAL'; createEffect(e.x, e.y, 'white', 50);
+                    if(e.hp > 0) e.state = 'NORMAL'; else e.state = 'DEAD'; 
+                    createEffect(e.x, e.y, 'white', 50);
                 }
             });
+        }
 
-            if (e.z === 1) {
-                let insideAny = buildings.some(b => e.x > b.x && e.x < b.x+b.w && e.y > b.y && e.y < b.y+b.h);
-                if (!insideAny) {
-                    e.z = 0; e.damage(50, null);
-                    createEffect(e.x, e.y, 'cyan', 80); playSfx('glass'); spawnText(e.x, e.y, "Упал!", 'white');
-                }
+        // Падение с разрушенного 2-го этажа
+        if (e.z === 1) {
+            let insideAny = buildings.some(b => !b.destroyed && e.x > b.x && e.x < b.x+b.w && e.y > b.y && e.y < b.y+b.h);
+            if (!insideAny) {
+                e.z = 0; e.damage(50, null);
+                createEffect(e.x, e.y, 'cyan', 80); playSfx('glass'); spawnText(e.x, e.y, "Упал!", 'white');
             }
         }
-        e.updateAI(); e.updatePos();
+
+        if (e.state !== 'DEAD') e.updateAI(); 
+        e.updatePos();
     });
 
     furnitures.forEach(f => {
@@ -714,12 +764,15 @@ function loop() {
                     createEffect(f.x, f.y, 'brown', 50); playSfx('punch');
                 }
             });
-            
-            if (f.z === 1) {
-                let insideAny = buildings.some(b => f.x > b.x && f.x < b.x+b.w && f.y > b.y && f.y < b.y+b.h);
-                if (!insideAny) { f.z = 0; f.vx=0; f.vy=0; f.state='NORMAL'; f.el.classList.add('broken'); f.respawn=300; f.el.style.display='none'; createEffect(f.x, f.y, 'cyan', 80); playSfx('glass'); }
-            }
-        } else if (f.broken && !f.heldBy) {
+        } 
+        
+        // Падение мебели с разрушенного здания
+        if (f.z === 1 && !f.heldBy && f.state !== 'THROWN') {
+            let insideAny = buildings.some(b => !b.destroyed && f.x > b.x && f.x < b.x+b.w && f.y > b.y && f.y < b.y+b.h);
+            if (!insideAny) { f.z = 0; f.vx=0; f.vy=0; f.state='NORMAL'; f.el.classList.add('broken'); f.respawn=300; f.el.style.display='none'; createEffect(f.x, f.y, 'cyan', 80); playSfx('glass'); }
+        }
+
+        if (f.broken && !f.heldBy) {
             f.respawn--; if (f.respawn <= 0) { f.broken = false; f.el.classList.remove('broken'); if(f.z === player.z) f.el.style.display = 'block'; }
         } else if (f.heldBy) {
             f.x = f.heldBy.x; f.y = f.heldBy.y - 30; f.z = f.heldBy.z;
@@ -742,7 +795,6 @@ function loop() {
 
     if (player) {
         let sw = window.innerWidth, sh = window.innerHeight;
-        // Применяем масштабирование и тряску камеры от центра экрана
         document.getElementById('world').style.transform = `translate(${sw/2 + sx}px, ${sh/2 + sy}px) scale(${camScale}) translate(${-player.x}px, ${-player.y}px)`;
     }
 
