@@ -2,78 +2,89 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Anti-Hack System</title>
-<style>
-    body {
-        font-family: Arial, sans-serif;
-        background-color: #121212;
-        color: #ffffff;
-        padding: 40px;
-        text-align: center;
-    }
-    .secure-container {
-        border: 2px solid #00ff00;
-        padding: 20px;
-        border-radius: 8px;
-        display: inline-block;
-    }
-</style>
+<title>Secure Web System</title>
 </head>
 <body>
-<div class="secure-container">
-    <h2>Secure Zone</h2>
-    <p>This element and all its code are protected.</p>
-</div>
-<script>
-window.addEventListener('load', () => {
-    let isReverting = false;
-
-    const antiHackObserver = new MutationObserver((mutations) => {
-        if (isReverting) return;
-        isReverting = true;
-
-        for (let i = mutations.length - 1; i >= 0; i--) {
-            const m = mutations[i];
-
-            if (m.type === 'childList') {
-                m.addedNodes.forEach(node => {
-                    if (node.parentNode) {
-                        node.parentNode.removeChild(node);
+<div id="app">System is running normally.</div>
+<script id="sis-core">
+window.addEventListener('DOMContentLoaded', () => {
+    const expectedCode = document.documentElement.outerHTML.trim();
+    const sisCode = `
+        let originalCode = "";
+        let lastUpdate = Date.now();
+        let timer;
+        self.onmessage = function(e) {
+            if (e.data.type === "init") {
+                originalCode = e.data.code;
+                lastUpdate = Date.now();
+                timer = setInterval(() => {
+                    if (Date.now() - lastUpdate > 25000) {
+                        self.postMessage({ action: "crash", reason: "The server was unresponsive for 25 seconds." });
+                        clearInterval(timer);
                     }
-                });
-
-                m.removedNodes.forEach(node => {
-                    if (m.target) {
-                        if (m.nextSibling) {
-                            m.target.insertBefore(node, m.nextSibling);
-                        } else {
-                            m.target.appendChild(node);
-                        }
-                    }
-                });
-            } else if (m.type === 'attributes') {
-                if (m.oldValue === null) {
-                    m.target.removeAttribute(m.attributeName);
-                } else {
-                    m.target.setAttribute(m.attributeName, m.oldValue);
+                }, 1000);
+            } else if (e.data.type === "payload") {
+                lastUpdate = Date.now();
+                if (e.data.code !== originalCode) {
+                    self.postMessage({ action: "crash", reason: "Detected Tamping" });
+                    clearInterval(timer);
                 }
-            } else if (m.type === 'characterData') {
-                m.target.nodeValue = m.oldValue;
+            }
+        };
+    `;
+    const blob = new Blob([sisCode], { type: "application/javascript" });
+    const sentinelIntegritySystemSIS = new Worker(URL.createObjectURL(blob));
+    let isCrashed = false;
+
+    function executeCrash(reason) {
+        if (isCrashed) return;
+        isCrashed = true;
+        document.body.innerHTML = "<h1 style='color:red; text-align:center; margin-top:20%; font-family:sans-serif;'>" + reason + "</h1>";
+        try { sentinelIntegritySystemSIS.terminate(); } catch(e) {}
+        setTimeout(() => {
+            window.location.replace("about:blank");
+        }, 3000);
+    }
+
+    sentinelIntegritySystemSIS.onmessage = (e) => {
+        if (e.data.action === "crash") {
+            executeCrash(e.data.reason);
+        }
+    };
+
+    sentinelIntegritySystemSIS.onerror = () => {
+        executeCrash("The site has been damaged!");
+    };
+
+    sentinelIntegritySystemSIS.postMessage({ type: "init", code: expectedCode });
+
+    setInterval(() => {
+        if (isCrashed) return;
+        try {
+            const currentCode = document.documentElement.outerHTML.trim();
+            sentinelIntegritySystemSIS.postMessage({ type: "payload", code: currentCode });
+        } catch (e) {
+            executeCrash("The site has been damaged!");
+        }
+    }, 10000);
+
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            for (const node of mutation.removedNodes) {
+                if (node.id === "sis-core" || node.tagName === "SCRIPT") {
+                    executeCrash("The site has been damaged!");
+                }
             }
         }
-
-        antiHackObserver.takeRecords();
-        isReverting = false;
     });
 
-    antiHackObserver.observe(document.documentElement, {
-        childList: true,
-        attributes: true,
-        characterData: true,
-        subtree: true,
-        attributeOldValue: true,
-        characterDataOldValue: true
-    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+
+    setInterval(() => {
+        if (!document.getElementById("sis-core")) {
+            executeCrash("The site has been damaged!");
+        }
+    }, 1000);
 });
 </script>
 </body>
