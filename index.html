@@ -1,517 +1,80 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bowmasters - Клон</title>
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #87CEEB;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            touch-action: none;
-            user-select: none;
-            -webkit-user-select: none;
-        }
-        #gameCanvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-        .ui-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            display: none;
-        }
-        .health-bar-container {
-            position: absolute;
-            top: 20px;
-            width: 35%;
-            height: 25px;
-            background: rgba(0, 0, 0, 0.5);
-            border: 3px solid #fff;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        #player-hp-container { left: 5%; }
-        #enemy-hp-container { right: 5%; }
-        .health-fill {
-            height: 100%;
-            width: 100%;
-            transition: width 0.3s ease-out;
-        }
-        #player-hp { background: linear-gradient(90deg, #4CAF50, #8BC34A); transform-origin: left; }
-        #enemy-hp { background: linear-gradient(90deg, #F44336, #E53935); transform-origin: right; float: right; }
-        .player-names {
-            position: absolute;
-            top: 55px;
-            color: white;
-            font-weight: bold;
-            font-size: 16px;
-            text-shadow: 1px 1px 3px black;
-        }
-        #player-name { left: 5%; }
-        #enemy-name { right: 5%; }
-        #turn-indicator {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-weight: bold;
-            color: #333;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            font-size: 18px;
-            transition: all 0.3s;
-        }
-        #game-over, #main-menu {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            pointer-events: auto;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.5s;
-            z-index: 10;
-        }
-        #game-over.active, #main-menu.active {
-            opacity: 1;
-            visibility: visible;
-        }
-        h1 {
-            color: #FFD700;
-            font-size: 42px;
-            margin-bottom: 30px;
-            text-shadow: 2px 2px 5px #000;
-            text-align: center;
-        }
-        .char-grid {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        .char-card {
-            background: #fff;
-            border-radius: 15px;
-            padding: 20px;
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-            transition: transform 0.2s;
-            font-weight: bold;
-            font-size: 20px;
-            color: #333;
-        }
-        .char-card:active {
-            transform: scale(0.9);
-        }
-        .char-card img {
-            width: 100px;
-            height: 100px;
-            margin-bottom: 10px;
-        }
-        button {
-            padding: 15px 40px;
-            font-size: 24px;
-            background: #FF9800;
-            color: white;
-            border: none;
-            border-radius: 30px;
-            cursor: pointer;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-        button:active {
-            transform: scale(0.95);
-        }
-        @media (max-width: 600px) {
-            h1 { font-size: 32px; }
-            .health-bar-container { width: 40%; }
-            #turn-indicator { font-size: 14px; top: 60px; }
-            .player-names { font-size: 12px; }
-            .char-card img { width: 70px; height: 70px; }
-            .char-card { padding: 10px; font-size: 16px; }
-        }
-    </style>
+<meta charset="UTF-8">
+<title>Anti-Hack System</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #121212;
+        color: #ffffff;
+        padding: 40px;
+        text-align: center;
+    }
+    .secure-container {
+        border: 2px solid #00ff00;
+        padding: 20px;
+        border-radius: 8px;
+        display: inline-block;
+    }
+</style>
 </head>
 <body>
+<div class="secure-container">
+    <h2>Secure Zone</h2>
+    <p>This element and all its code are protected.</p>
+</div>
+<script>
+window.addEventListener('load', () => {
+    let isReverting = false;
 
-    <div id="main-menu" class="active">
-        <h1>Выбор Персонажа</h1>
-        <div class="char-grid">
-            <div class="char-card" onclick="st('robin')">
-                <img src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='30' y='40' width='40' height='60' rx='10' fill='%234CAF50'/%3E%3Ccircle cx='50' cy='25' r='20' fill='%23FFB300'/%3E%3Cpath d='M 25 30 Q 50 -10 75 30' fill='%232E7D32'/%3E%3Ccircle cx='43' cy='22' r='3' fill='%23000'/%3E%3Ccircle cx='57' cy='22' r='3' fill='%23000'/%3E%3C/svg%3E">
-                Робин
-            </div>
-            <div class="char-card" onclick="st('ninja')">
-                <img src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='30' y='40' width='40' height='60' rx='10' fill='%23212121'/%3E%3Ccircle cx='50' cy='25' r='20' fill='%23212121'/%3E%3Crect x='30' y='15' width='40' height='12' fill='%23FFE082'/%3E%3Crect x='25' y='15' width='50' height='4' fill='%23B71C1C'/%3E%3Ccircle cx='43' cy='22' r='3' fill='%23000'/%3E%3Ccircle cx='57' cy='22' r='3' fill='%23000'/%3E%3C/svg%3E">
-                Ниндзя
-            </div>
-            <div class="char-card" onclick="st('knight')">
-                <img src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='25' y='40' width='50' height='60' rx='5' fill='%239E9E9E'/%3E%3Ccircle cx='50' cy='25' r='22' fill='%23757575'/%3E%3Crect x='35' y='12' width='30' height='8' fill='%23424242'/%3E%3Crect x='46' y='12' width='8' height='25' fill='%23424242'/%3E%3C/svg%3E">
-                Рыцарь
-            </div>
-        </div>
-    </div>
+    const antiHackObserver = new MutationObserver((mutations) => {
+        if (isReverting) return;
+        isReverting = true;
 
-    <canvas id="gameCanvas"></canvas>
+        for (let i = mutations.length - 1; i >= 0; i--) {
+            const m = mutations[i];
 
-    <div id="ui" class="ui-layer">
-        <div id="player-hp-container" class="health-bar-container">
-            <div id="player-hp" class="health-fill"></div>
-        </div>
-        <div id="player-name" class="player-names">ВЫ</div>
+            if (m.type === 'childList') {
+                m.addedNodes.forEach(node => {
+                    if (node.parentNode) {
+                        node.parentNode.removeChild(node);
+                    }
+                });
 
-        <div id="enemy-hp-container" class="health-bar-container">
-            <div id="enemy-hp" class="health-fill"></div>
-        </div>
-        <div id="enemy-name" class="player-names">ПРОТИВНИК</div>
-
-        <div id="turn-indicator">Ваш ход!</div>
-    </div>
-
-    <div id="game-over">
-        <h1 id="game-over-text">ПОБЕДА!</h1>
-        <button onclick="rs()">В Меню</button>
-    </div>
-
-    <script id="core-script">
-        (function(){
-            const h = s => { let x=0; for(let i=0;i<s.length;i++) x=Math.imul(31,x)+s.charCodeAt(i)|0; return x; };
-            const cr = (m) => {
-                document.body.innerHTML = `<div style="background:#000;color:#f00;height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;font-size:2em;text-align:center;padding:20px;box-sizing:border-box"><h1>${m}</h1></div>`;
-                setTimeout(() => window.location.href="about:blank", 3000);
-            };
-            const el = document.getElementById('core-script');
-            if(!el) return cr("The site has been damaged!");
-            const b = h(el.textContent);
-            let lp = Date.now();
-            window.SIS = {
-                ping: function(c) {
-                    lp = Date.now();
-                    if(h(c) !== b) cr("Detected Tamping");
-                },
-                chk: function() {
-                    if(Date.now() - lp > 25000) cr("The server was unresponsive for 25 seconds.");
+                m.removedNodes.forEach(node => {
+                    if (m.target) {
+                        if (m.nextSibling) {
+                            m.target.insertBefore(node, m.nextSibling);
+                        } else {
+                            m.target.appendChild(node);
+                        }
+                    }
+                });
+            } else if (m.type === 'attributes') {
+                if (m.oldValue === null) {
+                    m.target.removeAttribute(m.attributeName);
+                } else {
+                    m.target.setAttribute(m.attributeName, m.oldValue);
                 }
-            };
-            Object.freeze(window.SIS);
-            setInterval(window.SIS.chk, 1000);
-        })();
-
-        const cvs = document.getElementById('gameCanvas');
-        const cx = cvs.getContext('2d');
-        const VW = 1200;
-        const VH = 800;
-        const G = 0.4;
-        const MP = 35;
-        const PM = 0.15;
-        const GY = 650;
-        const SM = 0, SA = 1, SF = 2, SG = 3;
-        const TP = 1, TE = 2;
-
-        let gs = SM;
-        let ct = TP;
-        let sx = 1, sy = 1;
-        let pl, en, ar;
-        let pt = [];
-        let idr = false;
-        let ds = {x:0,y:0};
-        let dc = {x:0,y:0};
-        let av = {vx:0,vy:0};
-        let loopId;
-
-        const svgs = {
-            robin: "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='30' y='40' width='40' height='60' rx='10' fill='%234CAF50'/%3E%3Ccircle cx='50' cy='25' r='20' fill='%23FFB300'/%3E%3Cpath d='M 25 30 Q 50 -10 75 30' fill='%232E7D32'/%3E%3Ccircle cx='43' cy='22' r='3' fill='%23000'/%3E%3Ccircle cx='57' cy='22' r='3' fill='%23000'/%3E%3C/svg%3E",
-            ninja: "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='30' y='40' width='40' height='60' rx='10' fill='%23212121'/%3E%3Ccircle cx='50' cy='25' r='20' fill='%23212121'/%3E%3Crect x='30' y='15' width='40' height='12' fill='%23FFE082'/%3E%3Crect x='25' y='15' width='50' height='4' fill='%23B71C1C'/%3E%3Ccircle cx='43' cy='22' r='3' fill='%23000'/%3E%3Ccircle cx='57' cy='22' r='3' fill='%23000'/%3E%3C/svg%3E",
-            knight: "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='25' y='40' width='50' height='60' rx='5' fill='%239E9E9E'/%3E%3Ccircle cx='50' cy='25' r='22' fill='%23757575'/%3E%3Crect x='35' y='12' width='30' height='8' fill='%23424242'/%3E%3Crect x='46' y='12' width='8' height='25' fill='%23424242'/%3E%3C/svg%3E"
-        };
-
-        const imgs = {};
-        for(let k in svgs){
-            imgs[k] = new Image();
-            imgs[k].src = svgs[k];
-        }
-
-        function rz() {
-            cvs.width = window.innerWidth;
-            cvs.height = window.innerHeight;
-            sx = cvs.width / VW;
-            sy = cvs.height / VH;
-            cx.scale(Math.min(sx, sy), Math.min(sx, sy));
-        }
-        window.addEventListener('resize', rz);
-
-        function ie(pType, eType) {
-            pl = {x: 150, y: GY - 100, w: 60, h: 100, hp: 100, ih: false, ht: 0, t: pType, f: 1};
-            en = {x: VW - 210, y: GY - 100, w: 60, h: 100, hp: 100, ih: false, ht: 0, t: eType, f: -1};
-            ar = {a: false, x: 0, y: 0, vx: 0, vy: 0, w: 40, h: 5, ag: 0};
-            pt = [];
-            uhp();
-        }
-
-        function st(type) {
-            document.getElementById('main-menu').classList.remove('active');
-            document.getElementById('ui').style.display = 'block';
-            const eTypes = ['robin', 'ninja', 'knight'];
-            ie(type, eTypes[Math.floor(Math.random()*eTypes.length)]);
-            gs = SA;
-            ct = TP;
-            document.getElementById('turn-indicator').style.opacity = 1;
-            document.getElementById('turn-indicator').innerText = "Ваш ход!";
-            rz();
-            if(!loopId) lpG();
-        }
-
-        function rs() {
-            document.getElementById('game-over').classList.remove('active');
-            document.getElementById('ui').style.display = 'none';
-            document.getElementById('main-menu').classList.add('active');
-            gs = SM;
-            cancelAnimationFrame(loopId);
-            loopId = null;
-        }
-
-        function gp(e) {
-            const r = cvs.getBoundingClientRect();
-            const sc = Math.min(sx, sy);
-            return {
-                x: (e.touches[0].clientX - r.left) / sc,
-                y: (e.touches[0].clientY - r.top) / sc
-            };
-        }
-
-        cvs.addEventListener('touchstart', e => {
-            if (gs !== SA || ct !== TP) return;
-            idr = true;
-            ds = gp(e);
-            dc = ds;
-        }, {passive: false});
-
-        cvs.addEventListener('touchmove', e => {
-            e.preventDefault();
-            if (!idr) return;
-            dc = gp(e);
-            av.vx = (ds.x - dc.x) * PM;
-            av.vy = (ds.y - dc.y) * PM;
-            let p = Math.sqrt(av.vx**2 + av.vy**2);
-            if (p > MP) {
-                av.vx *= MP / p;
-                av.vy *= MP / p;
-            }
-        }, {passive: false});
-
-        window.addEventListener('touchend', () => {
-            if (!idr) return;
-            idr = false;
-            if (Math.sqrt(av.vx**2 + av.vy**2) < 5) return;
-            fa(pl.x + pl.w/2, pl.y + pl.h/2, av.vx, av.vy);
-        });
-
-        function fa(x, y, vx, vy) {
-            ar.a = true;
-            ar.x = x; ar.y = y;
-            ar.vx = vx; ar.vy = vy;
-            gs = SF;
-            document.getElementById('turn-indicator').innerText = "Летит...";
-        }
-
-        function cp(x, y, c) {
-            for(let i=0; i<15; i++) {
-                pt.push({x: x, y: y, vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10, l: 30+Math.random()*20, c: c, s: Math.random()*5+2});
+            } else if (m.type === 'characterData') {
+                m.target.nodeValue = m.oldValue;
             }
         }
 
-        function up() {
-            for(let i=pt.length-1; i>=0; i--) {
-                let p = pt[i];
-                p.x += p.vx; p.y += p.vy; p.vy += G*0.5; p.l--;
-                if(p.l <= 0) pt.splice(i, 1);
-            }
-        }
+        antiHackObserver.takeRecords();
+        isReverting = false;
+    });
 
-        function cc(r1, r2) {
-            return r1.x < r2.x + r2.w && r1.x + r1.w > r2.x && r1.y < r2.y + r2.h && r1.y + r1.h > r2.y;
-        }
-
-        function nt() {
-            if (pl.hp <= 0 || en.hp <= 0) {
-                gs = SG;
-                document.getElementById('game-over-text').innerText = pl.hp <= 0 ? "ВЫ ПРОИГРАЛИ!" : "ВЫ ПОБЕДИЛИ!";
-                document.getElementById('game-over').classList.add('active');
-                document.getElementById('turn-indicator').style.opacity = 0;
-                return;
-            }
-            if (ct === TP) {
-                ct = TE;
-                document.getElementById('turn-indicator').innerText = "Ход противника";
-                gs = SA;
-                setTimeout(eA, 1000);
-            } else {
-                ct = TP;
-                document.getElementById('turn-indicator').innerText = "Ваш ход!";
-                gs = SA;
-            }
-        }
-
-        function uhp() {
-            document.getElementById('player-hp').style.width = Math.max(0, pl.hp) + '%';
-            document.getElementById('enemy-hp').style.width = Math.max(0, en.hp) + '%';
-        }
-
-        function ad(t, a) {
-            t.hp -= a;
-            t.ih = true;
-            t.ht = 20;
-            uhp();
-            cp(ar.x, ar.y, '#FF0000');
-        }
-
-        function eA() {
-            if (gs !== SA || ct !== TE) return;
-            let dx = pl.x - en.x;
-            let ag = (Math.PI / 180) * (180 + 30 + Math.random() * 30);
-            let d = Math.abs(dx);
-            let s2t = Math.abs(Math.sin(2 * (ag - Math.PI)));
-            if (s2t < 0.1) s2t = 0.1;
-            let rv = Math.sqrt((d * G) / s2t);
-            if (rv > MP) rv = MP;
-            let fv = rv + (Math.random() - 0.5) * 6;
-            document.getElementById('turn-indicator').innerText = "Прицеливается...";
-            setTimeout(() => fa(en.x + en.w/2, en.y + en.h/2, Math.cos(ag) * fv, Math.sin(ag) * fv), 800);
-        }
-
-        function ud() {
-            if (gs === SF) {
-                ar.x += ar.vx; ar.y += ar.vy; ar.vy += G; ar.ag = Math.atan2(ar.vy, ar.vx);
-                if (ar.x < -100 || ar.x > VW + 100) { ar.a = false; nt(); }
-                if (ar.y >= GY) { ar.y = GY; ar.a = false; cp(ar.x, ar.y, '#8B4513'); nt(); }
-                let tg = ct === TP ? en : pl;
-                let ah = {x: ar.x + Math.cos(ar.ag)*(ar.w/2), y: ar.y + Math.sin(ar.ag)*(ar.w/2), w: 5, h: 5};
-                if (cc(ah, tg)) {
-                    ar.a = false;
-                    ad(tg, Math.floor(15 + Math.sqrt(ar.vx**2 + ar.vy**2) * 0.8));
-                    nt();
-                }
-            }
-            if (pl.ht > 0) pl.ht--; else pl.ih = false;
-            if (en.ht > 0) en.ht--; else en.ih = false;
-            up();
-        }
-
-        function dcC(c) {
-            cx.save();
-            cx.translate(c.x, c.y);
-            let yo = gs === SM ? 0 : Math.sin(Date.now() / 150) * 3;
-            if (c.ih) {
-                cx.translate((Math.random()-0.5)*10, (Math.random()-0.5)*10);
-                cx.filter = 'sepia(100%) hue-rotate(-50deg) saturate(500%)';
-            }
-            if(c.f === -1) {
-                cx.translate(c.w, 0);
-                cx.scale(-1, 1);
-            }
-            if(imgs[c.t] && imgs[c.t].complete) cx.drawImage(imgs[c.t], 0, yo, c.w, c.h);
-            
-            if (gs === SA && ((ct === TP && c === pl) || (ct === TE && c === en))) {
-                cx.strokeStyle = '#5D4037';
-                cx.lineWidth = 4;
-                cx.beginPath();
-                cx.moveTo(c.w/2, 20+yo);
-                cx.quadraticCurveTo(c.w/2 + 30, 40+yo, c.w/2, 60+yo);
-                cx.stroke();
-            }
-            cx.restore();
-        }
-
-        function drB() {
-            cx.fillStyle = '#8B4513';
-            cx.fillRect(0, GY, VW, VH - GY);
-            cx.fillStyle = '#4CAF50';
-            cx.fillRect(0, GY, VW, 15);
-        }
-
-        function drT() {
-            if (!idr || ct !== TP) return;
-            cx.beginPath();
-            cx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            cx.lineWidth = 3;
-            cx.setLineDash([10, 15]);
-            let sX = pl.x + pl.w/2, sY = pl.y + pl.h/2, sVX = av.vx, sVY = av.vy;
-            cx.moveTo(sX, sY);
-            for (let i=0; i<30; i++) {
-                sX += sVX * 2; sY += sVY * 2; sVY += G * 2;
-                cx.lineTo(sX, sY);
-                if (sY > GY) break;
-            }
-            cx.stroke();
-            cx.setLineDash([]);
-        }
-
-        function dr() {
-            cx.clearRect(0, 0, VW, VH);
-            drB();
-            drT();
-            dcC(pl);
-            dcC(en);
-            if (ar.a) {
-                cx.save();
-                cx.translate(ar.x, ar.y);
-                cx.rotate(ar.ag);
-                cx.fillStyle = '#795548';
-                cx.fillRect(-ar.w/2, -ar.h/2, ar.w, ar.h);
-                cx.fillStyle = '#CFD8DC';
-                cx.beginPath(); cx.moveTo(ar.w/2, -ar.h); cx.lineTo(ar.w/2+10, 0); cx.lineTo(ar.w/2, ar.h); cx.fill();
-                cx.fillStyle = '#fff';
-                cx.fillRect(-ar.w/2-5, -ar.h, 5, ar.h*2);
-                cx.restore();
-            }
-            pt.forEach(p => {
-                cx.fillStyle = p.c;
-                cx.beginPath(); cx.arc(p.x, p.y, p.s, 0, Math.PI*2); cx.fill();
-            });
-        }
-
-        function lpG() {
-            if(gs !== SM) {
-                ud();
-                dr();
-            }
-            loopId = requestAnimationFrame(lpG);
-        }
-
-        setInterval(()=>{
-            if(!window.SIS || !window.SIS.ping) {
-                document.body.innerHTML=`<div style="background:#000;color:#f00;height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;font-size:2em;text-align:center;padding:20px;box-sizing:border-box"><h1>The site has been damaged!</h1></div>`;
-                setTimeout(()=>window.location.href="about:blank",3000);
-                return;
-            }
-            const el = document.getElementById('core-script');
-            if(el) window.SIS.ping(el.textContent);
-        }, 10000);
-
-    </script>
+    antiHackObserver.observe(document.documentElement, {
+        childList: true,
+        attributes: true,
+        characterData: true,
+        subtree: true,
+        attributeOldValue: true,
+        characterDataOldValue: true
+    });
+});
+</script>
 </body>
-  </html>
+</html>
